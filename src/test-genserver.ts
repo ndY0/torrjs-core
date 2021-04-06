@@ -1,10 +1,8 @@
 import { GenServer } from "./interfaces/genserver";
-import { useTransport } from "./mixin/use-transport";
 import EventEmitter from "events";
-import { keyForIdSymbol, keyForMapSymbol } from "./utils/symbols";
-import { v1 } from "uuid";
 
-class ListServer extends useTransport(new EventEmitter()) {
+@Transport(new EventEmitter())
+class ListServer extends GenServer {
   //// SERVER MODULE
   private async *handlePush(state: any[], data: any) {
     state.push(data);
