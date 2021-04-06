@@ -10,14 +10,20 @@ import { supervise } from "../supervision";
 
 abstract class GenSupervisor {
   protected abstract children(): Class<GenServer>[];
-  public async *init(strategy: RestartStrategy): AsyncGenerator {
+  public async *start(
+    strategy: RestartStrategy,
+    canceler: AsyncGenerator<boolean, boolean, boolean>
+  ) {
+    const childSpecs = yield* this.init();
+    await tail(this.run(childSpecs, strategy), canceler);
+  }
+  public async *init(): AsyncGenerator {
     const children = this.children().map((Child) => new Child());
     const childSpecs: [GenServer, ChildSpec][] = [];
     for (const child of children) {
       childSpecs.push([child, yield* child.childSpec()]);
     }
-    //start server here
-    await tail(this.run(childSpecs, strategy));
+    return childSpecs;
   }
   public async *run(
     childSpecs: [GenServer, ChildSpec][],

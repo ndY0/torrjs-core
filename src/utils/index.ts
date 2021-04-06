@@ -23,14 +23,18 @@ function cure<Tfirst, Trest, Treturn>(
 
 async function tail<T>(
   iterator: AsyncGenerator<T, void, T | undefined>,
+  canceler: AsyncGenerator<boolean, boolean, boolean>,
   acc: T | undefined = undefined
 ): Promise<void> {
-  if (!acc) {
-    await iterator.next(acc);
-  }
-  const step = await iterator.next(acc);
-  if (!step.done) {
-    return tail(iterator, step.value);
+  const test = await canceler.next();
+  if (test.value) {
+    if (!acc) {
+      await iterator.next(acc);
+    }
+    const step = await iterator.next(acc);
+    if (!step.done) {
+      return tail(iterator, canceler, step.value);
+    }
   }
 }
 
@@ -42,6 +46,13 @@ async function loopPromise<T>(
   next = await executor(startArg);
   while (typeof next !== "boolean") {
     next = await executor(next);
+  }
+}
+
+async function* memo<T>(initialState: T) {
+  let state: T = initialState;
+  while (true) {
+    yield state;
   }
 }
 

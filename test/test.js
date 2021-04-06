@@ -7,11 +7,9 @@ const events_1 = __importDefault(require("events"));
 function cancelablePromiseFactory(executor, emitter) {
     return new Promise((innerResolve, innerReject) => {
         // try {
-        emitter.once("cancel", (reason) => {
-            // throw new Error(reason);
-            innerReject(reason);
-        });
-        executor(innerResolve, innerReject);
+        executor((value) => {
+            innerResolve();
+        }, innerReject);
         // } catch (reason) {
         // }
     });
