@@ -5,11 +5,13 @@ import { ServerEvent } from "../events";
 import { keyForIdSymbol, keyForMapSymbol } from "../utils/symbols";
 import { ChildSpec, ChildRestartStrategy } from "../supervision/strategies";
 import { tail } from "../utils";
+import { TransportEmitter } from "../transports";
+import { MixedTransportGenServer } from "../utils/types";
 
 abstract class GenServer {
-  [keyForIdSymbol]: string = v1();
+  abstract [keyForIdSymbol]: string;
   [key: string]: (...args: any[]) => AsyncGenerator;
-  [keyForMapSymbol] = new Map<string, string>();
+  abstract [keyForMapSymbol]: Map<string, string>;
   public abstract init(...args: unknown[]): AsyncGenerator;
   public async *start<U extends typeof GenServer>(
     startArgs: any,
@@ -36,11 +38,11 @@ abstract class GenServer {
       return state;
     }
   }
-  static eventEmitter: EventEmitter = new EventEmitter();
+  // static eventEmitter: EventEmitter = new EventEmitter();
   static API: { [key: string]: string } = {};
-  static async *call<T, U extends typeof GenServer>(
-    [target, serverId]: [typeof GenServer, string],
-    self: GenServer,
+  static async *call<T, U extends MixedTransportGenServer, V extends GenServer>(
+    [target, serverId]: [U, string],
+    self: V,
     action: keyof U["API"],
     args?: Record<string | number | symbol, any>
   ): AsyncGenerator<void, T, unknown> {
@@ -52,8 +54,8 @@ abstract class GenServer {
       return yield* take<T>(self[keyForIdSymbol], target.eventEmitter);
     }, args);
   }
-  static *cast<U extends typeof GenServer>(
-    [target, serverId]: [typeof GenServer, string],
+  static *cast<U extends MixedTransportGenServer>(
+    [target, serverId]: [U, string],
     action: keyof U["API"],
     args?: Record<string | number | symbol, any>
   ): Generator<null, null, unknown> {

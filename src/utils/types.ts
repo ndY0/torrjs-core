@@ -1,3 +1,10 @@
-type Class<T> = { new (...args: unknown[]): T };
+import { GenServer } from "../interfaces/genserver";
+import { Transport } from "../interfaces/transport";
+import { TransportEmitter } from "../transports";
 
-export { Class };
+type Class<T> = T & { new (...args: unknown[]): T };
+type MixedTransportGenServer = typeof GenServer & {
+  eventEmitter: TransportEmitter;
+};
+
+export { Class, MixedTransportGenServer };

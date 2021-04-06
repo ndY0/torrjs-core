@@ -1,7 +1,7 @@
-import { TransportEmitter } from "../transports";
+// import { TransportEmitter } from "../transports";
 
-function Transport(transport?: TransportEmitter) {
-  return (constructor: Function) => {};
-}
+// function Transport(transport?: TransportEmitter) {
+//   return (constructor: Function) => {};
+// }
 
-export { Transport };
+// export { Transport };

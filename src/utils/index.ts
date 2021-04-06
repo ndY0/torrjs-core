@@ -38,22 +38,12 @@ async function tail<T>(
   }
 }
 
-async function loopPromise<T>(
-  executor: (arg: T) => Promise<T | boolean>,
-  startArg: T
-) {
-  let next: T | boolean;
-  next = await executor(startArg);
-  while (typeof next !== "boolean") {
-    next = await executor(next);
-  }
-}
-
-async function* memo<T>(initialState: T) {
+async function* memo<T>(initialState: T): AsyncGenerator<T, void, T> {
   let state: T = initialState;
   while (true) {
-    yield state;
+    const passed = yield state;
+    state = passed !== undefined ? passed : state;
   }
 }
 
-export { promisify, cure, tail, loopPromise };
+export { promisify, cure, tail, memo };
