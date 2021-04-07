@@ -7,32 +7,39 @@ import { GenServer } from "./genserver";
 import { tail } from "../utils";
 import { Class } from "../utils/types";
 import { supervise } from "../supervision";
+import EventEmitter from "events";
 
 abstract class GenSupervisor {
-  protected abstract children(): Class<GenServer>[];
+  protected abstract children(): typeof GenServer[];
   public async *start(
     strategy: RestartStrategy,
-    canceler: AsyncGenerator<boolean, boolean, boolean>
+    canceler: AsyncGenerator<[boolean, EventEmitter], never, boolean>,
+    cancelerPromise: Promise<boolean>
   ) {
     const childSpecs = yield* this.init();
-    await tail(this.run(childSpecs, strategy), canceler);
+    await tail(this.run(cancelerPromise, childSpecs, strategy), canceler);
   }
   public async *init(): AsyncGenerator {
     const children: [
-      Class<GenServer>,
+      typeof GenServer,
       GenServer
-    ][] = this.children().map((Child) => [Child, new Child()]);
-    const childSpecs: [Class<GenServer>, GenServer, ChildSpec][] = [];
+    ][] = this.children().map((Child) => [
+      Child,
+      new (<any>(<unknown>Child))(),
+    ]);
+    const childSpecs: [typeof GenServer, GenServer, ChildSpec][] = [];
     for (const [Child, child] of children) {
       childSpecs.push([Child, child, yield* child.childSpec()]);
     }
     return childSpecs;
   }
   public async *run(
-    childSpecs: [Class<GenServer>, GenServer, ChildSpec][],
+    cancelerPromise: Promise<boolean>,
+    childSpecs: [typeof GenServer, GenServer, ChildSpec][],
     strategy: RestartStrategy
   ): AsyncGenerator {
-    yield* supervise(childSpecs, strategy);
+    //here
+    yield* supervise(childSpecs, strategy, cancelerPromise);
   }
   public async *childSpec(): AsyncGenerator<void, ChildSpec, unknown> {
     return {

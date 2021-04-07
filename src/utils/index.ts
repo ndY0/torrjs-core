@@ -1,4 +1,4 @@
-import { nextTick } from "process";
+import EventEmitter from "events";
 
 async function promisify<Treturn>(
   fn: (callback: (...result: [Treturn]) => void) => void,
@@ -23,11 +23,10 @@ function cure<Tfirst, Trest, Treturn>(
 
 async function tail<T>(
   iterator: AsyncGenerator<T, void, T | undefined>,
-  canceler: AsyncGenerator<boolean, boolean, boolean>,
+  canceler: AsyncGenerator<[boolean, EventEmitter], never, boolean>,
   acc: T | undefined = undefined
 ): Promise<void> {
-  const test = await canceler.next();
-  if (test.value) {
+  if (await getMemoValue(canceler)) {
     if (!acc) {
       await iterator.next(acc);
     }
@@ -38,12 +37,51 @@ async function tail<T>(
   }
 }
 
-async function* memo<T>(initialState: T): AsyncGenerator<T, void, T> {
+async function getMemoPromise<T>(
+  memo: AsyncGenerator<[T, EventEmitter], never, T>
+) {
+  const {
+    value: [_, emitter],
+  } = await memo.next();
+  return promisify<T>(cure(emitter.once, emitter)("updated"), emitter);
+}
+
+async function getMemoValue<T>(
+  memo: AsyncGenerator<[T, EventEmitter], never, T>
+) {
+  const {
+    value: [memoized, _],
+  } = await memo.next();
+  return memoized;
+}
+
+async function putMemoValue<T>(
+  memo: AsyncGenerator<[T, EventEmitter], never, T>,
+  value: T
+) {
+  await memo.next(value);
+}
+
+async function* memo<T>(
+  initialState: T
+): AsyncGenerator<[T, EventEmitter], never, T> {
   let state: T = initialState;
+  const emitter = new EventEmitter();
   while (true) {
-    const passed = yield state;
-    state = passed !== undefined ? passed : state;
+    const passed = yield [state, emitter];
+    if (passed !== undefined) {
+      state = passed;
+      emitter.emit("updated", state);
+    }
   }
 }
 
-export { promisify, cure, tail, memo };
+export {
+  promisify,
+  cure,
+  tail,
+  memo,
+  getMemoPromise,
+  getMemoValue,
+  putMemoValue,
+};

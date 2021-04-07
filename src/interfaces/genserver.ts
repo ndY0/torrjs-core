@@ -5,6 +5,7 @@ import { keyForIdSymbol, keyForMapSymbol } from "../utils/symbols";
 import { ChildSpec, ChildRestartStrategy } from "../supervision/strategies";
 import { tail } from "../utils";
 import { TransportEmitter } from "../transports";
+import EventEmitter from "events";
 
 abstract class GenServer {
   [keyForIdSymbol]: string = v1();
@@ -15,9 +16,13 @@ abstract class GenServer {
   public async *start<U extends typeof GenServer>(
     startArgs: any,
     context: U,
-    canceler: AsyncGenerator<boolean, boolean, boolean>
+    canceler: AsyncGenerator<[boolean, EventEmitter], never, boolean>,
+    cancelerPromise: Promise<boolean>
   ) {
-    await tail(this.run(yield* this.init(startArgs), context), canceler);
+    await tail(
+      this.run(cancelerPromise, context, yield* this.init(startArgs)),
+      canceler
+    );
   }
   public async *childSpec(): AsyncGenerator<void, ChildSpec, unknown> {
     return {
@@ -25,10 +30,15 @@ abstract class GenServer {
       shutdown: 10_000,
     };
   }
-  public async *run<U extends typeof GenServer>(context: U, state: any) {
+  public async *run<U extends typeof GenServer>(
+    canceler: Promise<boolean>,
+    context: U,
+    state: any
+  ) {
     const event = yield* take<ServerEvent>(
       this[keyForIdSymbol],
-      context.eventEmitter
+      context.eventEmitter,
+      canceler
     );
     const funcName = context[keyForMapSymbol].get(event.action);
     if (funcName) {

@@ -4,7 +4,7 @@ import { ListServer } from "./test-genserver";
 import { Class } from "./utils/types";
 
 class ListSupervisor extends GenSupervisor {
-  protected children(): Class<GenServer>[] {
+  protected children<ListServer>() {
     return [ListServer];
   }
 }

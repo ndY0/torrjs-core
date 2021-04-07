@@ -4,22 +4,15 @@ import { ListServer } from "../test-genserver";
 import { Class } from "../utils/types";
 import { keyForMetadataMapSymbol } from "../utils/symbols";
 
-type Reserved = "init";
-type Not<T> = T extends Reserved ? never : T;
-
 function handle(eventName: string) {
   return <T extends GenServer, U extends string>(
     target: T,
-    propertyKey: U & (U extends Reserved ? never : U),
+    propertyKey: U & (U extends "init" ? never : U),
     _descriptor: PropertyDescriptor
   ) => {
-    let map: Map<string, string> = Reflect.getOwnMetadata(
-      keyForMetadataMapSymbol,
-      target
-    );
-    if (!map) {
-      map = new Map<string, string>();
-    }
+    let map: Map<string, string> =
+      Reflect.getOwnMetadata(keyForMetadataMapSymbol, target) ||
+      new Map<string, string>();
     map.set(eventName, propertyKey);
     Reflect.defineMetadata(keyForMetadataMapSymbol, map, target);
   };
