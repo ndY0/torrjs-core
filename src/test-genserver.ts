@@ -1,14 +1,18 @@
 import { GenServer } from "./interfaces/genserver";
 import EventEmitter from "events";
+import { Server } from "./annotations/server";
+import { handle } from "./annotations/handle";
 
-@Transport(new EventEmitter())
+@Server(new EventEmitter())
 class ListServer extends GenServer {
   //// SERVER MODULE
+  @handle("push")
   private async *handlePush(state: any[], data: any) {
     state.push(data);
     return state;
   }
 
+  @handle("pop")
   private async *handlePop(state: any[]) {
     const data = state.pop();
     return [state, data];

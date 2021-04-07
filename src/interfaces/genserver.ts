@@ -10,7 +10,7 @@ abstract class GenServer {
   [keyForIdSymbol]: string = v1();
   static eventEmitter: TransportEmitter;
   [key: string]: (...args: any[]) => AsyncGenerator;
-  [keyForMapSymbol]: Map<string, string> = new Map<string, string>();
+  static [keyForMapSymbol]: Map<string, string> = new Map<string, string>();
   public abstract init(...args: unknown[]): AsyncGenerator;
   public async *start<U extends typeof GenServer>(
     startArgs: any,
@@ -30,7 +30,7 @@ abstract class GenServer {
       this[keyForIdSymbol],
       context.eventEmitter
     );
-    const funcName = this[keyForMapSymbol].get(event.action);
+    const funcName = context[keyForMapSymbol].get(event.action);
     if (funcName) {
       return yield* this[funcName](event.caller, event.data);
     } else {

@@ -1,4 +1,5 @@
-const keyForIdSymbol = Symbol.for("id");
-const keyForMapSymbol = Symbol.for("map");
+const keyForIdSymbol = Symbol("id");
+const keyForMapSymbol = Symbol("map");
+const keyForMetadataMapSymbol = Symbol("metadata_map");
 
-export { keyForIdSymbol, keyForMapSymbol };
+export { keyForIdSymbol, keyForMapSymbol, keyForMetadataMapSymbol };
