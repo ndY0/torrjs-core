@@ -5,40 +5,49 @@ import {
 } from "../supervision/strategies";
 import { GenServer } from "./genserver";
 import { tail } from "../utils";
-import { Class } from "../utils/types";
 import { supervise } from "../supervision";
 import EventEmitter from "events";
 
-abstract class GenSupervisor {
-  protected abstract children(): typeof GenServer[];
-  public async *start(
-    strategy: RestartStrategy,
+abstract class GenSupervisor extends GenServer {
+  protected abstract children(): AsyncGenerator<
+    unknown,
+    (typeof GenServer & (new () => GenServer))[],
+    unknown
+  >;
+  public async *start<U extends typeof GenServer>(
+    startArgs: RestartStrategy,
+    context: U,
     canceler: AsyncGenerator<[boolean, EventEmitter], never, boolean>,
     cancelerPromise: Promise<boolean>
   ) {
     const childSpecs = yield* this.init();
-    await tail(this.run(cancelerPromise, childSpecs, strategy), canceler);
+    await tail(
+      this.run(cancelerPromise, context, { childSpecs, strategy: startArgs }),
+      canceler
+    );
   }
   public async *init(): AsyncGenerator {
     const children: [
       typeof GenServer,
       GenServer
-    ][] = this.children().map((Child) => [
-      Child,
-      new (<any>(<unknown>Child))(),
-    ]);
+    ][] = (yield* this.children()).map((Child) => [Child, new Child()]);
     const childSpecs: [typeof GenServer, GenServer, ChildSpec][] = [];
     for (const [Child, child] of children) {
       childSpecs.push([Child, child, yield* child.childSpec()]);
     }
     return childSpecs;
   }
-  public async *run(
+  public async *run<U extends typeof GenServer>(
     cancelerPromise: Promise<boolean>,
-    childSpecs: [typeof GenServer, GenServer, ChildSpec][],
-    strategy: RestartStrategy
-  ): AsyncGenerator {
-    //here
+    _context: U,
+    {
+      strategy,
+      childSpecs,
+    }: {
+      childSpecs: [typeof GenServer, GenServer, ChildSpec][];
+      strategy: RestartStrategy;
+    }
+  ) {
     yield* supervise(childSpecs, strategy, cancelerPromise);
   }
   public async *childSpec(): AsyncGenerator<void, ChildSpec, unknown> {

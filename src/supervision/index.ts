@@ -1,28 +1,81 @@
 import { ChildSpec, RestartStrategy, ChildRestartStrategy } from "./strategies";
 import { GenServer } from "../interfaces/genserver";
-import { tail, memo, getMemoPromise } from "../utils";
-import { Class } from "../utils/types";
+import {
+  tail,
+  memo,
+  getMemoPromise,
+  promisifyAsyncGenerator,
+  loopWorker,
+} from "../utils";
 
 async function* supervise(
   children: [typeof GenServer, GenServer, ChildSpec][],
   strategy: RestartStrategy,
   upperCancelerPromise: Promise<boolean>
-) {
+): AsyncGenerator<
+  {
+    childSpecs: [typeof GenServer, GenServer, ChildSpec][];
+    strategy: RestartStrategy.ONE_FOR_ALL;
+  },
+  void,
+  undefined
+> {
+  if (children.length === 0) {
+    return undefined;
+  }
   const canceler = memo(true);
-  const cancelerPromise = getMemoPromise(canceler);
-  Promise.any(
-    children.map(([Child, child, spec]) =>
-      tail(
+  if (strategy === RestartStrategy.ONE_FOR_ALL) {
+    const cancelerPromise = getMemoPromise(canceler);
+    const mappedChildren = children.map(([Child, child, spec]) =>
+      promisifyAsyncGenerator(
         child.start(
           spec.startArgs,
           Child,
           canceler,
-          Promise.any([upperCancelerPromise, cancelerPromise])
-        ),
-        canceler
+          Promise.race([upperCancelerPromise, cancelerPromise])
+        )
       )
-    )
-  );
+        .then(() =>
+          spec.restart === ChildRestartStrategy.PERMANENT
+            ? [Child, child, spec]
+            : undefined
+        )
+        .catch(() =>
+          spec.restart === ChildRestartStrategy.TRANSIENT
+            ? [Child, child, spec]
+            : undefined
+        )
+    );
+    await Promise.race(mappedChildren)
+      .then(() => canceler.next(false))
+      .catch(() => canceler.next(false));
+    const result = await Promise.all(mappedChildren);
+    yield {
+      childSpecs: result.filter((childState): childState is [
+        typeof GenServer,
+        GenServer,
+        ChildSpec
+      ] => {
+        return childState instanceof Array;
+      }),
+      strategy,
+    };
+  } else if (strategy === RestartStrategy.ONE_FOR_ONE) {
+    await Promise.all(
+      children.map(([Child, child, spec]) =>
+        loopWorker(
+          () =>
+            promisifyAsyncGenerator(
+              child.start(spec.startArgs, Child, canceler, upperCancelerPromise)
+            ),
+          spec
+        )
+      )
+    );
+  } else {
+    return undefined;
+  }
+  return undefined;
 }
 
 export { supervise };

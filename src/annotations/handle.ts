@@ -1,7 +1,5 @@
 import "reflect-metadata";
 import { GenServer } from "../interfaces/genserver";
-import { ListServer } from "../test-genserver";
-import { Class } from "../utils/types";
 import { keyForMetadataMapSymbol } from "../utils/symbols";
 
 function handle(eventName: string) {

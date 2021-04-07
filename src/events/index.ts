@@ -6,4 +6,13 @@ class ServerEvent {
   ) {}
 }
 
-export { ServerEvent };
+enum ReplyTypes {
+  NO_REPLY,
+  REPLY,
+}
+
+type ServerReply =
+  | { type: ReplyTypes.NO_REPLY; newState: any }
+  | { type: ReplyTypes.REPLY; reply: any; newState: any };
+
+export { ServerEvent, ReplyTypes, ServerReply };

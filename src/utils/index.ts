@@ -1,4 +1,5 @@
 import EventEmitter from "events";
+import { ChildRestartStrategy, ChildSpec } from "../supervision/strategies";
 
 async function promisify<Treturn>(
   fn: (callback: (...result: [Treturn]) => void) => void,
@@ -76,6 +77,27 @@ async function* memo<T>(
   }
 }
 
+async function promisifyAsyncGenerator(generator: AsyncGenerator) {
+  let isDone;
+  do {
+    const { done } = await generator.next();
+    isDone = done;
+  } while (!isDone);
+}
+
+async function loopWorker(factory: () => Promise<any>, spec: ChildSpec) {
+  try {
+    await factory();
+    if (spec.restart === ChildRestartStrategy.PERMANENT) {
+      await loopWorker(factory, spec);
+    }
+  } catch (_e) {
+    if (spec.restart === ChildRestartStrategy.PERMANENT) {
+      await loopWorker(factory, spec);
+    }
+  }
+}
+
 export {
   promisify,
   cure,
@@ -84,4 +106,6 @@ export {
   getMemoPromise,
   getMemoValue,
   putMemoValue,
+  promisifyAsyncGenerator,
+  loopWorker,
 };

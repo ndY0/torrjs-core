@@ -2,6 +2,7 @@ import { GenServer } from "./interfaces/genserver";
 import EventEmitter from "events";
 import { Server } from "./annotations/server";
 import { handle } from "./annotations/handle";
+import { ReplyTypes } from "./events";
 
 @Server(new EventEmitter())
 class ListServer extends GenServer {
@@ -9,13 +10,13 @@ class ListServer extends GenServer {
   @handle("push")
   private async *handlePush(state: any[], data: any) {
     state.push(data);
-    return state;
+    return { type: ReplyTypes.NO_REPLY, newState: state };
   }
 
   @handle("pop")
   private async *handlePop(state: any[]) {
     const data = state.pop();
-    return [state, data];
+    return { type: ReplyTypes.REPLY, newState: state, reply: data };
   }
 
   //// SERVER INITIALISATION

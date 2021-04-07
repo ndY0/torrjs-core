@@ -1,11 +1,12 @@
 import { v1 } from "uuid";
 import { call, cast, take } from "../effects";
-import { ServerEvent } from "../events";
+import { ServerEvent, ServerReply, ReplyTypes } from "../events";
 import { keyForIdSymbol, keyForMapSymbol } from "../utils/symbols";
 import { ChildSpec, ChildRestartStrategy } from "../supervision/strategies";
 import { tail } from "../utils";
 import { TransportEmitter } from "../transports";
 import EventEmitter from "events";
+import { Server } from "http";
 
 abstract class GenServer {
   [keyForIdSymbol]: string = v1();
@@ -41,25 +42,31 @@ abstract class GenServer {
       canceler
     );
     const funcName = context[keyForMapSymbol].get(event.action);
+    let result: ServerReply;
     if (funcName) {
-      return yield* this[funcName](event.caller, event.data);
+      result = yield* this[funcName](state, event.data);
     } else {
       return state;
     }
+    if (event.caller && result.type === ReplyTypes.REPLY) {
+      context.eventEmitter.emit(event.caller, result.reply);
+    }
+    return result.newState;
   }
   static API: { [key: string]: string } = {};
   static async *call<T, U extends typeof GenServer, V extends GenServer>(
     [target, serverId]: [U, string],
     self: V,
     action: keyof U["API"],
-    args?: Record<string | number | symbol, any>
+    args?: Record<string | number | symbol, any>,
+    timeout: number = 5000
   ): AsyncGenerator<void, T, unknown> {
     return yield* call<T, void>(async function* (...args: any[]) {
       target.eventEmitter.emit(
         serverId,
         new ServerEvent(<string>action, args, self[keyForIdSymbol])
       );
-      return yield* take<T>(self[keyForIdSymbol], target.eventEmitter);
+      return yield* take<T>(self[keyForIdSymbol], target.eventEmitter, timeout);
     }, args);
   }
   static *cast<U extends typeof GenServer>(
