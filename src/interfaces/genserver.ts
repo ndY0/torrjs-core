@@ -21,7 +21,7 @@ abstract class GenServer {
     cancelerPromise: Promise<boolean>
   ) {
     await tail(
-      this.run(cancelerPromise, context, yield* this.init(startArgs)),
+      this.run(canceler, cancelerPromise, context, yield* this.init(startArgs)),
       canceler
     );
   }
@@ -32,14 +32,15 @@ abstract class GenServer {
     };
   }
   public async *run<U extends typeof GenServer>(
-    canceler: Promise<boolean>,
+    _canceler: AsyncGenerator<[boolean, EventEmitter], never, boolean>,
+    cancelerPromise: Promise<boolean>,
     context: U,
     state: any
   ) {
     const event = yield* take<ServerEvent>(
       this[keyForIdSymbol],
       context.eventEmitter,
-      canceler
+      cancelerPromise
     );
     const funcName = context[keyForMapSymbol].get(event.action);
     let result: ServerReply;

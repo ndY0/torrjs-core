@@ -72,6 +72,7 @@ async function* supervise(
         )
       )
     );
+    return undefined;
   } else {
     return undefined;
   }
