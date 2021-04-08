@@ -1,9 +1,5 @@
-class ServerEvent {
-  constructor(
-    public action: string,
-    public data: Record<string | number | symbol, any>,
-    public caller?: string
-  ) {}
+class ServerEvent<T = Record<string | number | symbol, any>> {
+  constructor(public action: string, public data: T, public caller?: string) {}
 }
 
 enum ReplyTypes {
@@ -15,4 +11,6 @@ type ServerReply =
   | { type: ReplyTypes.NO_REPLY; newState: any }
   | { type: ReplyTypes.REPLY; reply: any; newState: any };
 
-export { ServerEvent, ReplyTypes, ServerReply };
+type RegistryAction = { selector: string } | { key: string; value: string };
+
+export { ServerEvent, ReplyTypes, ServerReply, RegistryAction };

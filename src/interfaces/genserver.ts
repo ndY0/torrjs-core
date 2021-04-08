@@ -6,7 +6,6 @@ import { ChildSpec, ChildRestartStrategy } from "../supervision/strategies";
 import { tail } from "../utils";
 import { TransportEmitter } from "../transports";
 import EventEmitter from "events";
-import { Server } from "http";
 
 abstract class GenServer {
   [keyForIdSymbol]: string = v1();

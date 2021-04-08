@@ -6,7 +6,6 @@ import {
 } from "../supervision/strategies";
 import EventEmitter from "events";
 import { GenSupervisor } from "./gensupervisor";
-import { ServerEvent } from "../events";
 import { take } from "../effects";
 import { supervise } from "../supervision";
 import { tail } from "../utils";
@@ -53,13 +52,14 @@ abstract class GenDynamicSupervisor extends GenSupervisor {
       shutdown: Infinity,
     };
   }
-  public static async startChild<
-    U extends typeof GenServer,
+  public static async *startChild<
+    U extends typeof GenDynamicSupervisor,
     V extends typeof GenServer & (new () => GenServer)
   >(targetSupervisor: U, targetChild: V, spec: ChildSpec) {
-    targetSupervisor.eventEmitter.emit(
-      targetSupervisor.name,
-      new ServerEvent("startChild", { spec, targetChild })
+    yield* GenServer.cast<U>(
+      [targetSupervisor, targetSupervisor.name],
+      "startChild",
+      { spec, targetChild }
     );
   }
 }
