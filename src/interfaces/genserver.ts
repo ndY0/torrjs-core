@@ -1,10 +1,10 @@
 import { v1 } from "uuid";
 import { call, cast, take } from "../effects";
-import { ServerEvent, ServerReply, ReplyTypes } from "../events";
+import { ServerEvent, ServerReply, ReplyTypes } from "../events/types";
 import { keyForIdSymbol, keyForMapSymbol } from "../utils/symbols";
-import { ChildSpec, ChildRestartStrategy } from "../supervision/strategies";
+import { ChildSpec, ChildRestartStrategy } from "../supervision/types";
 import { tail } from "../utils";
-import { TransportEmitter } from "../transports";
+import { TransportEmitter } from "../transports/interface";
 import EventEmitter from "events";
 
 abstract class GenServer {
@@ -12,7 +12,7 @@ abstract class GenServer {
   static eventEmitter: TransportEmitter;
   [key: string]: (...args: any[]) => AsyncGenerator;
   static [keyForMapSymbol]: Map<string, string> = new Map<string, string>();
-  public abstract init(...args: unknown[]): AsyncGenerator;
+  protected abstract init(...args: unknown[]): AsyncGenerator;
   public async *start<U extends typeof GenServer>(
     startArgs: any,
     context: U,
@@ -30,7 +30,7 @@ abstract class GenServer {
       shutdown: 10_000,
     };
   }
-  public async *run<U extends typeof GenServer>(
+  protected async *run<U extends typeof GenServer>(
     _canceler: AsyncGenerator<[boolean, EventEmitter], never, boolean>,
     cancelerPromise: Promise<boolean>,
     context: U,
@@ -49,7 +49,7 @@ abstract class GenServer {
       return state;
     }
     if (event.caller && result.type === ReplyTypes.REPLY) {
-      context.eventEmitter.emit(event.caller, result.reply);
+      context.eventEmitter.emit({ event: event.caller }, result.reply);
     }
     return result.newState;
   }
@@ -62,8 +62,8 @@ abstract class GenServer {
     timeout: number = 5000
   ): AsyncGenerator<void, T, unknown> {
     return yield* call<T, void>(async function* (...args: any[]) {
-      target.eventEmitter.emit(
-        serverId,
+      await target.eventEmitter.emit(
+        { event: serverId },
         new ServerEvent(<string>action, args, self[keyForIdSymbol])
       );
       return yield* take<T>(self[keyForIdSymbol], target.eventEmitter, timeout);
@@ -75,7 +75,10 @@ abstract class GenServer {
     args?: Record<string | number | symbol, any>
   ): Generator<null, null, unknown> {
     return yield* cast(async function* (...args: any[]) {
-      target.eventEmitter.emit(serverId, new ServerEvent(<string>action, args));
+      target.eventEmitter.emit(
+        { event: serverId },
+        new ServerEvent(<string>action, args)
+      );
     }, args);
   }
 }

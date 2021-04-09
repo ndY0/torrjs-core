@@ -1,13 +1,14 @@
 import { GenSupervisor } from "./interfaces/gensupervisor";
 import { ListServer } from "./test-genserver";
 import { Server } from "./annotations/server";
-import EventEmitter from "events";
+import { InMemoryEmitter } from "./transports/in-memory-emitter";
+import { ListRegistry } from "./test-genregistry";
 
-@Server(new EventEmitter())
-class ListSupervisor extends GenSupervisor {
+@Server(new InMemoryEmitter(100))
+class ListRegistrySupervisor extends GenSupervisor {
   protected async *children() {
-    return [ListServer, ListServer];
+    return [ListRegistry];
   }
 }
 
-export { ListSupervisor };
+export { ListRegistrySupervisor };

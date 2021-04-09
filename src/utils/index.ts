@@ -1,9 +1,9 @@
 import EventEmitter from "events";
-import { ChildRestartStrategy, ChildSpec } from "../supervision/strategies";
+import { ChildRestartStrategy, ChildSpec } from "../supervision/types";
 
 async function promisify<Treturn>(
   fn: (callback: (...result: [Treturn]) => void) => void,
-  context: any = null
+  context?: any
 ): Promise<Treturn> {
   return new Promise(
     (resolve: (res: Treturn) => void, reject: (err: Error) => void) => {
@@ -77,23 +77,37 @@ async function* memo<T>(
   }
 }
 
-async function promisifyAsyncGenerator(generator: AsyncGenerator) {
+async function promisifyAsyncGenerator<T>(
+  generator: AsyncGenerator<T, T, unknown>
+) {
   let isDone;
+  let result: T;
   do {
-    const { done } = await generator.next();
+    const { done, value } = await generator.next();
     isDone = done;
+    result = value;
   } while (!isDone);
+  return result;
 }
 
-async function loopWorker(factory: () => Promise<any>, spec: ChildSpec) {
+async function loopWorker(
+  factory: () => Promise<any>,
+  spec: ChildSpec,
+  canceler: AsyncGenerator<[boolean, EventEmitter], never, boolean>
+): Promise<void> {
   try {
-    await factory();
-    if (spec.restart === ChildRestartStrategy.PERMANENT) {
-      await loopWorker(factory, spec);
+    if (await getMemoValue(canceler)) {
+      await factory();
+      if (spec.restart === ChildRestartStrategy.PERMANENT) {
+        return loopWorker(factory, spec, canceler);
+      }
     }
   } catch (_e) {
-    if (spec.restart === ChildRestartStrategy.PERMANENT) {
-      await loopWorker(factory, spec);
+    if (
+      spec.restart === ChildRestartStrategy.TRANSIENT ||
+      spec.restart === ChildRestartStrategy.PERMANENT
+    ) {
+      return loopWorker(factory, spec, canceler);
     }
   }
 }

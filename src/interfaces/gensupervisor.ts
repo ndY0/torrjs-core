@@ -2,7 +2,7 @@ import {
   ChildSpec,
   ChildRestartStrategy,
   RestartStrategy,
-} from "../supervision/strategies";
+} from "../supervision/types";
 import { GenServer } from "./genserver";
 import { tail } from "../utils";
 import { supervise } from "../supervision";
@@ -29,18 +29,18 @@ abstract class GenSupervisor extends GenServer {
       canceler
     );
   }
-  public async *init(): AsyncGenerator {
+  protected async *init(): AsyncGenerator {
     const children: [
       typeof GenServer,
       GenServer
-    ][] = (yield* this.children()).map((Child) => [Child, new Child()]);
+    ][] = (yield* this.children()).map((Child) => [Child, new (<any>Child)()]);
     const childSpecs: [typeof GenServer, GenServer, ChildSpec][] = [];
     for (const [Child, child] of children) {
       childSpecs.push([Child, child, yield* child.childSpec()]);
     }
     return childSpecs;
   }
-  public async *run<U extends typeof GenServer>(
+  protected async *run<U extends typeof GenServer>(
     _canceler: AsyncGenerator<[boolean, EventEmitter], never, boolean>,
     cancelerPromise: Promise<boolean>,
     _context: U,

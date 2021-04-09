@@ -1,10 +1,10 @@
 import { GenServer } from "./interfaces/genserver";
-import EventEmitter from "events";
 import { Server } from "./annotations/server";
 import { handle } from "./annotations/handle";
-import { ReplyTypes } from "./events";
+import { ReplyTypes } from "./events/types";
+import { InMemoryEmitter } from "./transports/in-memory-emitter";
 
-@Server(new EventEmitter())
+@Server(new InMemoryEmitter(1000))
 class ListServer extends GenServer {
   //// SERVER MODULE
   @handle("push")

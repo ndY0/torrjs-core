@@ -1,7 +1,6 @@
-import { ChildSpec, RestartStrategy, ChildRestartStrategy } from "./strategies";
+import { ChildSpec, RestartStrategy, ChildRestartStrategy } from "./types";
 import { GenServer } from "../interfaces/genserver";
 import {
-  tail,
   memo,
   getMemoPromise,
   promisifyAsyncGenerator,
@@ -24,8 +23,8 @@ async function* supervise(
     return undefined;
   }
   const canceler = memo(true);
+  const cancelerPromise = getMemoPromise(canceler);
   if (strategy === RestartStrategy.ONE_FOR_ALL) {
-    const cancelerPromise = getMemoPromise(canceler);
     const mappedChildren = children.map(([Child, child, spec]) =>
       promisifyAsyncGenerator(
         child.start(
@@ -41,7 +40,8 @@ async function* supervise(
             : undefined
         )
         .catch(() =>
-          spec.restart === ChildRestartStrategy.TRANSIENT
+          spec.restart === ChildRestartStrategy.TRANSIENT ||
+          spec.restart === ChildRestartStrategy.PERMANENT
             ? [Child, child, spec]
             : undefined
         )
@@ -61,14 +61,21 @@ async function* supervise(
       strategy,
     };
   } else if (strategy === RestartStrategy.ONE_FOR_ONE) {
+    upperCancelerPromise.then((value: boolean) => canceler.next(value));
     await Promise.all(
       children.map(([Child, child, spec]) =>
         loopWorker(
           () =>
             promisifyAsyncGenerator(
-              child.start(spec.startArgs, Child, canceler, upperCancelerPromise)
+              child.start(
+                spec.startArgs,
+                Child,
+                canceler,
+                Promise.race([upperCancelerPromise, cancelerPromise])
+              )
             ),
-          spec
+          spec,
+          canceler
         )
       )
     );

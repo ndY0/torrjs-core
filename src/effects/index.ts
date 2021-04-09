@@ -1,5 +1,5 @@
 import { promisify, cure } from "../utils";
-import { time } from "console";
+import { TransportEmitter } from "../transports/interface";
 
 async function run<Treturn, Tyield>(
   fn: (...args: any[]) => AsyncGenerator<Tyield, Treturn, any>,
@@ -31,17 +31,17 @@ function* cast(
 
 async function* take<Treturn>(
   event: string,
-  emitter: NodeJS.EventEmitter,
-  timeout: number | Promise<any> = Infinity
+  emitter: TransportEmitter,
+  timeout: number | Promise<any> = 10_000
 ): AsyncGenerator<void, Treturn, any> {
   return await Promise.race([
-    promisify<Treturn>(cure(emitter.once, emitter)(event), emitter),
+    promisify<Treturn>(cure(emitter.once, emitter)({ event }), emitter),
     typeof timeout === "number"
-      ? new Promise((resolve) => {
+      ? new Promise<void>((resolve) => {
           setTimeout(() => resolve(), timeout);
         })
       : timeout,
   ]);
 }
 
-export { call, take, cast };
+export { call, take, cast, run };

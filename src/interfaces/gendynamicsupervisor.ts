@@ -3,7 +3,7 @@ import {
   RestartStrategy,
   ChildRestartStrategy,
   ChildSpec,
-} from "../supervision/strategies";
+} from "../supervision/types";
 import EventEmitter from "events";
 import { GenSupervisor } from "./gensupervisor";
 import { take } from "../effects";
@@ -14,13 +14,13 @@ abstract class GenDynamicSupervisor extends GenSupervisor {
   protected async *children() {
     return [];
   }
-  public async *init(): AsyncGenerator {
+  protected async *init(): AsyncGenerator {
     return {
       strategy: RestartStrategy.ONE_FOR_ONE,
       childSpecs: [],
     };
   }
-  public async *run<
+  protected async *run<
     U extends typeof GenServer,
     V extends typeof GenServer & (new () => GenServer)
   >(
@@ -31,15 +31,30 @@ abstract class GenDynamicSupervisor extends GenSupervisor {
       strategy,
       childSpecs,
     }: {
-      childSpecs: [typeof GenServer, GenServer, ChildSpec][];
+      childSpecs: [
+        typeof GenServer & (new () => GenServer),
+        GenServer,
+        ChildSpec
+      ][];
       strategy: RestartStrategy;
     }
-  ) {
+  ): AsyncGenerator<
+    void | {
+      strategy: RestartStrategy;
+      childSpecs: [
+        typeof GenServer & (new () => GenServer),
+        GenServer,
+        ChildSpec
+      ][];
+    },
+    any,
+    any
+  > {
     const { targetChild, spec } = yield* take<{
       spec: ChildSpec;
       targetChild: V;
     }>("startChild", context.eventEmitter, cancelerPromise);
-    childSpecs.push([targetChild, new targetChild(), spec]);
+    childSpecs.push([targetChild, new (<any>targetChild)(), spec]);
     tail(supervise(childSpecs, strategy, cancelerPromise), canceler);
     return yield {
       strategy,

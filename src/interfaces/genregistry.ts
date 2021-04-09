@@ -1,15 +1,13 @@
 import { GenServer } from "./genserver";
-import { keyForRegistryMap, keyForIdSymbol } from "../utils/symbols";
 import EventEmitter from "events";
 import { take } from "../effects";
-import { RegistryAction, ServerEvent } from "../events";
-import { stringify } from "querystring";
+import { RegistryAction, ServerEvent } from "../events/types";
 
-class GenRegistry extends GenServer {
-  public async *init() {
+abstract class GenRegistry extends GenServer {
+  protected async *init() {
     return new Map<string, string[]>();
   }
-  public async *run<U extends typeof GenServer>(
+  protected async *run<U extends typeof GenServer>(
     _canceler: AsyncGenerator<[boolean, EventEmitter], never, boolean>,
     cancelerPromise: Promise<boolean>,
     context: U,
@@ -31,7 +29,7 @@ class GenRegistry extends GenServer {
     } else {
       const { selector } = <{ selector: string }>data;
       if (caller) {
-        context.eventEmitter.emit(caller, state.get(selector) || []);
+        context.eventEmitter.emit({ event: caller }, state.get(selector) || []);
       }
     }
     return state;
@@ -40,7 +38,7 @@ class GenRegistry extends GenServer {
     U extends typeof GenRegistry,
     V extends GenServer
   >(targetRegistry: U, self: V, selector: string, timeout?: number) {
-    GenServer.call(
+    return yield* GenServer.call<string, U, V>(
       [targetRegistry, targetRegistry.name],
       self,
       "lookup",
