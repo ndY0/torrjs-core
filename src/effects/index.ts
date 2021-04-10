@@ -32,7 +32,7 @@ function* cast(
 async function* take<Treturn>(
   event: string,
   emitter: TransportEmitter,
-  timeout: number | Promise<any> = 10_000
+  timeout: number | Promise<any> = 5_000
 ): AsyncGenerator<void, Treturn, any> {
   return await Promise.race([
     promisify<Treturn>(cure(emitter.once, emitter)({ event }), emitter),

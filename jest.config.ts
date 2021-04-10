@@ -13,6 +13,7 @@ const config: Config.InitialOptions = {
   collectCoverage: true,
   testMatch: ["**/src/**/?(*.)+(spec|test).[jt]s?(x)"],
   testPathIgnorePatterns: ["/lib/", "/node_modules/"],
+  setupFilesAfterEnv: ["./jest.setup.ts"],
 };
 
 export default config;

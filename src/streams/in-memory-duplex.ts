@@ -1,4 +1,4 @@
-import { Transform, PassThrough } from "stream";
+import { PassThrough } from "stream";
 
 class InMemoryDuplex extends PassThrough {
   public constructor(queueSize: number) {
@@ -6,11 +6,7 @@ class InMemoryDuplex extends PassThrough {
       objectMode: true,
       highWaterMark: queueSize,
       autoDestroy: false,
-      allowHalfOpen: true,
       emitClose: false,
-      // transform: (chunck) => {
-      //   this.write(chunck);
-      // },
     });
   }
 }

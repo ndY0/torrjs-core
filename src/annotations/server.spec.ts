@@ -16,6 +16,16 @@ class TestGenServer extends GenServer {
   }
 }
 
+@Server(new InMemoryEmitter(10))
+class TestGenServerEmpty extends GenServer {
+  public async *init(startArgs: null) {
+    return [];
+  }
+  private async *handleTest(state: any[]) {
+    return { type: ReplyTypes.REPLY, newState: state, reply: null };
+  }
+}
+
 describe("Server", () => {
   it(`should attach to the class object the provided emitter, fill
   the mapping information of event provided by handle annotations,
@@ -37,6 +47,30 @@ describe("Server", () => {
       "eventEmitter"
     );
     expect(map?.value.get("test")).toEqual("handleTest");
+    expect(mapMetadata).toBeUndefined();
+    expect(eventEmitter?.value).toBeInstanceOf(InMemoryEmitter);
+  });
+  it(`should attach to the class object the provided emitter, fill
+  the mapping information of event with an empty map if no provided by handle,
+  and delete the map set for initializing metadatas about events`, () => {
+    const map:
+      | PropertyDescriptor
+      | undefined = Reflect.getOwnPropertyDescriptor(
+      TestGenServerEmpty,
+      keyForMapSymbol
+    );
+
+    const mapMetadata: Map<string, string> = Reflect.getOwnMetadata(
+      keyForMetadataMapSymbol,
+      TestGenServerEmpty.prototype
+    );
+    const eventEmitter:
+      | PropertyDescriptor
+      | undefined = Reflect.getOwnPropertyDescriptor(
+      TestGenServerEmpty,
+      "eventEmitter"
+    );
+    expect(map?.value.size).toEqual(0);
     expect(mapMetadata).toBeUndefined();
     expect(eventEmitter?.value).toBeInstanceOf(InMemoryEmitter);
   });

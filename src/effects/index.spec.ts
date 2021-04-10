@@ -59,12 +59,45 @@ describe("take", () => {
     const emitter = new InMemoryEmitter(1);
     const computationResult = await Promise.all([
       take("test", emitter).next(),
-      new Promise<void>((resolve) =>
+      new Promise<void>((resolve) => {
         setTimeout(() => {
           emitter.emit({ event: "test" }, { value: "test" });
           resolve();
-        }, 200)
-      ),
+        }, 500);
+      }).catch(console.log),
     ]);
+    expect(computationResult[0].value).toEqual({ value: "test" });
+  });
+  it("should await for an event to be triggerred by an event emitter, and return undefined if reaching provided promise timeout", async () => {
+    const emitter = new InMemoryEmitter(1);
+    const timeout = new Promise<void>((resolve) =>
+      setTimeout(() => resolve(), 500)
+    );
+    const computationResult = await Promise.all([
+      take("test", emitter, timeout).next(),
+      new Promise<void>((resolve) => {
+        setTimeout(() => {
+          emitter.emit({ event: "test" }, { value: "test" });
+          resolve();
+        }, 2000);
+      }).catch(console.log),
+    ]);
+    expect(computationResult[0].value).toEqual(undefined);
+  });
+  it("should await for an event to be triggerred by an event emitter, and return undefined if reaching default 5_000ms timeout", async () => {
+    const emitter = new InMemoryEmitter(1);
+    const timeout = new Promise<void>((resolve) =>
+      setTimeout(() => resolve(), 500)
+    );
+    const computationResult = await Promise.all([
+      take("test", emitter).next(),
+      new Promise<void>((resolve) => {
+        setTimeout(() => {
+          emitter.emit({ event: "test" }, { value: "test" });
+          resolve();
+        }, 6000);
+      }).catch(console.log),
+    ]);
+    expect(computationResult[0].value).toEqual(undefined);
   });
 });

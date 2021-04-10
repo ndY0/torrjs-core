@@ -20,16 +20,14 @@ class InMemoryEmitter implements TransportEmitter {
     }
     const canceler = memo(true);
     let result = stream.read(1);
-    console.log(result);
     if (!result) {
       result = await Promise.race([
-        promisify(cure(stream.once, stream)("readable"), stream).then(
-          (data) => {
+        promisify(cure(stream.once, stream)("readable"), stream).then(() => {
+          if (getMemoValue(canceler)) {
             const test = (<Duplex>stream).read(1);
-            console.log(test, data);
             return test;
           }
-        ),
+        }),
         new Promise<boolean>((resolve) =>
           setTimeout(() => {
             putMemoValue(canceler, false), resolve(false);
@@ -53,11 +51,9 @@ class InMemoryEmitter implements TransportEmitter {
       this.streams.set(event, stream);
     }
     const ok = stream.write(args);
-    console.log("is write ok : ", ok);
     if (!ok) {
       return await Promise.race([
         promisify(cure(stream.once, stream)("drain"), stream).then(() => {
-          console.log("been there");
           (<Duplex>stream).write(args);
           return true;
         }),
