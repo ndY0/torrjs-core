@@ -1,7 +1,14 @@
 import { TransportEmitter } from "./interface";
 import { Duplex } from "stream";
 import { InMemoryDuplex } from "../streams/in-memory-duplex";
-import { memo, getMemoValue, putMemoValue, promisify, cure } from "../utils";
+import {
+  memo,
+  getMemoValue,
+  putMemoValue,
+  promisify,
+  cure,
+  delay,
+} from "../utils";
 
 class InMemoryEmitter implements TransportEmitter {
   private streams: Map<string | symbol, Duplex> = new Map<
@@ -22,17 +29,19 @@ class InMemoryEmitter implements TransportEmitter {
     let result = stream.read(1);
     if (!result) {
       result = await Promise.race([
-        promisify(cure(stream.once, stream)("readable"), stream).then(() => {
-          if (getMemoValue(canceler)) {
+        (async function (passedCanceler) {
+          await promisify(cure(stream.once, stream)("readable"), stream);
+          const shouldRun = await getMemoValue(passedCanceler);
+          if (shouldRun) {
             const test = (<Duplex>stream).read(1);
             return test;
           }
-        }),
-        new Promise<boolean>((resolve) =>
-          setTimeout(() => {
-            putMemoValue(canceler, false), resolve(false);
-          }, timeout || 10_000)
-        ),
+        })(canceler),
+        (async function (passedCanceler) {
+          await delay(timeout || 10_000);
+          await putMemoValue(passedCanceler, false);
+          const value = await getMemoValue(passedCanceler);
+        })(canceler),
       ]);
     }
     if (result && typeof result !== "boolean") {
@@ -53,13 +62,15 @@ class InMemoryEmitter implements TransportEmitter {
     const ok = stream.write(args);
     if (!ok) {
       return await Promise.race([
-        promisify(cure(stream.once, stream)("drain"), stream).then(() => {
+        (async () => {
+          await promisify(cure(stream.once, stream)("drain"), stream);
           (<Duplex>stream).write(args);
           return true;
-        }),
-        new Promise<boolean>((resolve) =>
-          setTimeout(() => resolve(false), timeout || 5_000)
-        ),
+        })(),
+        (async () => {
+          await delay(timeout || 5_000);
+          return false;
+        })(),
       ]);
     }
     return true;

@@ -20,8 +20,9 @@ abstract class GenServer {
     cancelerPromise: Promise<boolean>
   ) {
     await tail(
-      this.run(canceler, cancelerPromise, context, yield* this.init(startArgs)),
-      canceler
+      (state: any) => this.run(canceler, cancelerPromise, context, state),
+      canceler,
+      yield* this.init(startArgs)
     );
   }
   public async *childSpec(): AsyncGenerator<void, ChildSpec, unknown> {
@@ -41,17 +42,20 @@ abstract class GenServer {
       context.eventEmitter,
       cancelerPromise
     );
-    const funcName = context[keyForMapSymbol].get(event.action);
-    let result: ServerReply;
-    if (funcName) {
-      result = yield* this[funcName](state, event.data);
-    } else {
-      return state;
+    if (event) {
+      const funcName = context[keyForMapSymbol].get(event.action);
+      let result: ServerReply;
+      if (funcName) {
+        result = yield* this[funcName](state, ...event.data);
+      } else {
+        return state;
+      }
+      if (event.caller && result.type === ReplyTypes.REPLY) {
+        context.eventEmitter.emit({ event: event.caller }, result.reply);
+      }
+      return result.newState;
     }
-    if (event.caller && result.type === ReplyTypes.REPLY) {
-      context.eventEmitter.emit({ event: event.caller }, result.reply);
-    }
-    return result.newState;
+    return state;
   }
   static API: { [key: string]: string } = {};
   static async *call<T, U extends typeof GenServer, V extends GenServer>(

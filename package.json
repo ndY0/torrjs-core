@@ -10,7 +10,9 @@
   "scripts": {
     "prebuild": "rimraf lib",
     "build": "tsc",
-    "test": "jest"
+    "pretest": "rimraf coverage",
+    "test": "jest --detectOpenHandles",
+    "watch": "yarn test --watchAll"
   },
   "devDependencies": {
     "@types/jest": "^26.0.22",

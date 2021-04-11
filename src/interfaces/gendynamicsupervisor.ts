@@ -39,7 +39,8 @@ abstract class GenDynamicSupervisor extends GenSupervisor {
       strategy: RestartStrategy;
     }
   ): AsyncGenerator<
-    void | {
+    any,
+    {
       strategy: RestartStrategy;
       childSpecs: [
         typeof GenServer & (new () => GenServer),
@@ -47,16 +48,20 @@ abstract class GenDynamicSupervisor extends GenSupervisor {
         ChildSpec
       ][];
     },
-    any,
     any
   > {
     const { targetChild, spec } = yield* take<{
       spec: ChildSpec;
       targetChild: V;
     }>("startChild", context.eventEmitter, cancelerPromise);
-    childSpecs.push([targetChild, new (<any>targetChild)(), spec]);
-    tail(supervise(childSpecs, strategy, cancelerPromise), canceler);
-    return yield {
+    const child: [
+      typeof GenServer & (new () => GenServer),
+      GenServer,
+      ChildSpec
+    ] = [targetChild, new (<any>targetChild)(), spec];
+    childSpecs.push(child);
+    tail(() => supervise([child], strategy, cancelerPromise), canceler, null);
+    return {
       strategy,
       childSpecs,
     };

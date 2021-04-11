@@ -2,6 +2,7 @@ import {
   ChildSpec,
   ApplicationSpec,
   RestartStrategy,
+  ChildRestartStrategy,
 } from "../supervision/types";
 import { GenServer } from "./genserver";
 import {
@@ -26,11 +27,12 @@ class GenApplication<T extends typeof GenServer & (new () => GenServer)> {
       async () => {
         const childSpecs = await promisifyAsyncGenerator(this.init());
         await tail(
-          this.run(this.canceler, this.cancelerPromise, {
+          (specs) => this.run(this.canceler, this.cancelerPromise, specs),
+          this.canceler,
+          {
             childSpecs,
             strategy: this.spec.childStrategy,
-          }),
-          this.canceler
+          }
         );
       },
       this.spec.strategy,
@@ -65,11 +67,11 @@ class GenApplication<T extends typeof GenServer & (new () => GenServer)> {
       strategy: RestartStrategy;
     }
   ): AsyncGenerator<
-    void | {
+    any,
+    {
       childSpecs: [typeof GenServer, GenServer, ChildSpec][];
       strategy: RestartStrategy;
     },
-    void,
     undefined
   > {
     return yield* supervise(childSpecs, strategy, cancelerPromise);

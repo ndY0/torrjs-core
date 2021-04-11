@@ -23,17 +23,24 @@ function cure<Tfirst, Trest, Treturn>(
 }
 
 async function tail<T>(
-  iterator: AsyncGenerator<T, void, T | undefined>,
+  factory: (acc: T) => AsyncGenerator<any, T, T | undefined>,
   canceler: AsyncGenerator<[boolean, EventEmitter], never, boolean>,
-  acc: T | undefined = undefined
-): Promise<void> {
+  acc: T,
+  stopCondition?: (state: T) => boolean
+): Promise<T | undefined> {
+  const iterator = factory(acc);
   if (await getMemoValue(canceler)) {
-    if (!acc) {
-      await iterator.next(acc);
+    let done;
+    let res: T = acc;
+    while (!done) {
+      const step = await iterator.next();
+      done = step.done;
+      res = step.value;
     }
-    const step = await iterator.next(acc);
-    if (!step.done) {
-      return tail(iterator, canceler, step.value);
+    if (stopCondition && stopCondition(res)) {
+      return res;
+    } else {
+      return tail(factory, canceler, res, stopCondition);
     }
   }
 }
@@ -63,18 +70,22 @@ async function putMemoValue<T>(
   await memo.next(value);
 }
 
-async function* memo<T>(
-  initialState: T
-): AsyncGenerator<[T, EventEmitter], never, T> {
-  let state: T = initialState;
-  const emitter = new EventEmitter();
-  while (true) {
-    const passed = yield [state, emitter];
-    if (passed !== undefined) {
-      state = passed;
-      emitter.emit("updated", state);
+function memo<T>(initialState: T): AsyncGenerator<[T, EventEmitter], never, T> {
+  const generator = (async function* (
+    initialState: T
+  ): AsyncGenerator<[T, EventEmitter], never, T> {
+    let state: T = initialState;
+    const emitter = new EventEmitter();
+    while (true) {
+      const passed = yield [state, emitter];
+      if (passed !== undefined) {
+        state = passed;
+        emitter.emit("updated", state);
+      }
     }
-  }
+  })(initialState);
+  generator.next();
+  return generator;
 }
 
 async function promisifyAsyncGenerator<T>(
@@ -112,6 +123,10 @@ async function loopWorker(
   }
 }
 
+async function delay(ms: number) {
+  await new Promise<void>((resolve) => setTimeout(() => resolve(), ms));
+}
+
 export {
   promisify,
   cure,
@@ -122,4 +137,5 @@ export {
   putMemoValue,
   promisifyAsyncGenerator,
   loopWorker,
+  delay,
 };

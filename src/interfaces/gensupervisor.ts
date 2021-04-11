@@ -22,11 +22,13 @@ abstract class GenSupervisor extends GenServer {
   ) {
     const childSpecs = yield* this.init();
     await tail(
-      this.run(canceler, cancelerPromise, context, {
+      (specs) => this.run(canceler, cancelerPromise, context, specs),
+      canceler,
+      {
         childSpecs,
         strategy: startArgs,
-      }),
-      canceler
+      },
+      (specs) => specs.childSpecs.length === 0
     );
   }
   protected async *init(): AsyncGenerator {
@@ -52,11 +54,11 @@ abstract class GenSupervisor extends GenServer {
       strategy: RestartStrategy;
     }
   ): AsyncGenerator<
-    void | {
+    any,
+    {
       childSpecs: [typeof GenServer, GenServer, ChildSpec][];
       strategy: RestartStrategy;
     },
-    void,
     undefined
   > {
     return yield* supervise(childSpecs, strategy, cancelerPromise);

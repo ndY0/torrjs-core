@@ -8,9 +8,8 @@ import {
   putMemoValue,
   promisifyAsyncGenerator,
   loopWorker,
+  delay,
 } from ".";
-import EventEmitter from "events";
-import { count } from "console";
 import { ChildRestartStrategy } from "../supervision/types";
 
 describe("promisify", () => {
@@ -50,34 +49,44 @@ describe("tail", () => {
   it("should call next on given async iterator, without memory exhaustion (tail call), passing the yielded value", async () => {
     const outterCount = { counter: 0 };
     const canceler = memo(true);
-    const longRunningIterator = (async function* (count: { counter: number }) {
-      let done;
-      while (!done) {
-        if (count.counter > 50000) {
-          done = true;
-        }
-        count.counter += 1;
-        yield count;
-      }
-    })(outterCount);
-    await tail(longRunningIterator, canceler, outterCount);
-    expect(outterCount.counter).toBeGreaterThanOrEqual(50000);
+    const longRunningIterator = async function* (count: {
+      counter: number;
+    }): AsyncGenerator<
+      never,
+      { counter: number },
+      { counter: number } | undefined
+    > {
+      count.counter += 1;
+      return count;
+    };
+    await tail(
+      (counter) => longRunningIterator(counter),
+      canceler,
+      outterCount,
+      (counter) => counter.counter > 50_000
+    );
+    expect(outterCount.counter).toBeGreaterThanOrEqual(50_000);
   });
   it("should stop recursion if the memo iterator returns an falsy value", async () => {
     const outterCount = { counter: 0 };
     const canceler = memo(true);
-    const longRunningIterator = (async function* (count: { counter: number }) {
-      let done;
-      while (!done) {
-        if (count.counter > 50000) {
-          done = true;
-        }
-        count.counter += 1;
-        yield count;
-      }
-    })(outterCount);
+    const longRunningIterator = async function* (count: {
+      counter: number;
+    }): AsyncGenerator<
+      never,
+      { counter: number },
+      { counter: number } | undefined
+    > {
+      count.counter += 1;
+      return count;
+    };
     await Promise.all([
-      tail(longRunningIterator, canceler),
+      tail(
+        (counter) => longRunningIterator(counter),
+        canceler,
+        outterCount,
+        (counter) => counter.counter > 50_000
+      ),
       new Promise<void>((resolve) => {
         canceler.next(false);
         resolve();
@@ -277,5 +286,13 @@ describe("loopWorker", () => {
     ]);
     await putMemoValue(canceler, false);
     expect(restartCount).toEqual(1);
+  });
+});
+describe("delay", () => {
+  it("should delay further execution by given milliseconds", async () => {
+    const before = new Date().getTime();
+    await delay(300);
+    const after = new Date().getTime();
+    expect(after - before).toBeGreaterThanOrEqual(300);
   });
 });

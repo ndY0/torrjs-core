@@ -5,6 +5,7 @@ import {
   getMemoPromise,
   promisifyAsyncGenerator,
   loopWorker,
+  putMemoValue,
 } from "../utils";
 
 async function* supervise(
@@ -12,15 +13,15 @@ async function* supervise(
   strategy: RestartStrategy,
   upperCancelerPromise: Promise<boolean>
 ): AsyncGenerator<
+  any,
   {
     childSpecs: [typeof GenServer, GenServer, ChildSpec][];
-    strategy: RestartStrategy.ONE_FOR_ALL;
+    strategy: RestartStrategy;
   },
-  void,
   undefined
 > {
   if (children.length === 0) {
-    return undefined;
+    return { childSpecs: [], strategy };
   }
   const canceler = memo(true);
   const cancelerPromise = getMemoPromise(canceler);
@@ -46,11 +47,11 @@ async function* supervise(
             : undefined
         )
     );
-    await Promise.race(mappedChildren)
-      .then(() => canceler.next(false))
-      .catch(() => canceler.next(false));
+    await Promise.race(mappedChildren).then(
+      async () => await putMemoValue(canceler, false)
+    );
     const result = await Promise.all(mappedChildren);
-    yield {
+    return {
       childSpecs: result.filter((childState): childState is [
         typeof GenServer,
         GenServer,
@@ -79,11 +80,10 @@ async function* supervise(
         )
       )
     );
-    return undefined;
+    return { childSpecs: [], strategy };
   } else {
-    return undefined;
+    return { childSpecs: [], strategy };
   }
-  return undefined;
 }
 
 export { supervise };

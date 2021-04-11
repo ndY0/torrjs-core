@@ -1,5 +1,9 @@
 class ServerEvent<T = Record<string | number | symbol, any>> {
-  constructor(public action: string, public data: T, public caller?: string) {}
+  constructor(
+    public action: string,
+    public data: T[],
+    public caller?: string
+  ) {}
 }
 
 enum ReplyTypes {
