@@ -1,4 +1,4 @@
-import { promisify, cure } from "../utils";
+import { promisify, cure, memo, putMemoValue } from "../utils";
 import { TransportEmitter } from "../transports/interface";
 
 async function run<Treturn, Tyield>(
@@ -34,14 +34,38 @@ async function* take<Treturn>(
   emitter: TransportEmitter,
   timeout: number | Promise<any> = 5_000
 ): AsyncGenerator<void, Treturn, any> {
+  const canceler = memo(true);
   return await Promise.race([
-    promisify<Treturn>(cure(emitter.once, emitter)({ event }), emitter),
+    promisify<Treturn>(
+      cure(emitter.once, emitter)({ event, canceler }),
+      emitter
+    ),
     typeof timeout === "number"
       ? new Promise<void>((resolve) => {
-          setTimeout(() => resolve(), timeout);
+          setTimeout(() => (putMemoValue(canceler, false), resolve()), timeout);
         })
-      : timeout,
+      : timeout.then((data) => (putMemoValue(canceler, false), data)),
   ]);
 }
+async function* takeAny<Treturn>(
+  event: string,
+  emitters: TransportEmitter[],
+  timeout: number | Promise<any> = 5_000
+) {
+  const canceler = memo(true);
+  return await Promise.race([
+    ...emitters.map((emitter) =>
+      promisify<Treturn>(
+        cure(emitter.once, emitter)({ event, canceler }),
+        emitter
+      )
+    ),
+    typeof timeout === "number"
+      ? new Promise<void>((resolve) => {
+          setTimeout(() => (putMemoValue(canceler, false), resolve()), timeout);
+        })
+      : timeout.then((data) => (putMemoValue(canceler, false), data)),
+  ]).then((data) => (putMemoValue(canceler, false), data));
+}
 
-export { call, take, cast, run };
+export { call, take, takeAny, cast, run };

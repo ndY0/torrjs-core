@@ -13,7 +13,11 @@ abstract class GenRegistry extends GenServer {
     context: U,
     state: Map<string, string[]>
   ) {
-    const { data, caller, action } = yield* take<ServerEvent<RegistryAction>>(
+    const {
+      data: [data],
+      caller,
+      action,
+    } = yield* take<ServerEvent<RegistryAction>>(
       context.name,
       context.eventEmitter,
       cancelerPromise

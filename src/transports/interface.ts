@@ -3,7 +3,11 @@ import { Duplex } from "stream";
 
 interface TransportEmitter {
   once(
-    onceInfo: { timeout?: number; event: string | symbol },
+    onceInfo: {
+      timeout?: number;
+      event: string | symbol;
+      canceler: AsyncGenerator<[boolean, EventEmitter], never, boolean>;
+    },
     listener: (...args: any[]) => void
   ): Promise<void>;
   emit(

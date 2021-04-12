@@ -1,5 +1,5 @@
 import { TransportEmitter } from "./interface";
-import { Duplex } from "stream";
+import { Duplex, EventEmitter } from "stream";
 import { InMemoryDuplex } from "../streams/in-memory-duplex";
 import {
   memo,
@@ -17,7 +17,15 @@ class InMemoryEmitter implements TransportEmitter {
   >();
   public constructor(private readonly queueSize: number) {}
   public async once(
-    { timeout, event }: { timeout?: number; event: string | symbol },
+    {
+      timeout,
+      event,
+      canceler,
+    }: {
+      timeout?: number;
+      event: string | symbol;
+      canceler: AsyncGenerator<[boolean, EventEmitter], never, boolean>;
+    },
     listener: (...args: any[]) => void
   ): Promise<void> {
     let stream = this.streams.get(event);
@@ -25,23 +33,27 @@ class InMemoryEmitter implements TransportEmitter {
       stream = new InMemoryDuplex(this.queueSize);
       this.streams.set(event, stream);
     }
-    const canceler = memo(true);
+    const innerCanceler = memo(true);
     let result = stream.read(1);
     if (!result) {
       result = await Promise.race([
         (async function (passedCanceler) {
           await promisify(cure(stream.once, stream)("readable"), stream);
-          const shouldRun = await getMemoValue(passedCanceler);
+          const shouldRun = (
+            await Promise.all([
+              getMemoValue(passedCanceler),
+              getMemoValue(canceler),
+            ])
+          ).reduce((acc, curr) => acc && curr, true);
           if (shouldRun) {
-            const test = (<Duplex>stream).read(1);
-            return test;
+            return (<Duplex>stream).read(1);
           }
-        })(canceler),
+        })(innerCanceler),
         (async function (passedCanceler) {
           await delay(timeout || 10_000);
           await putMemoValue(passedCanceler, false);
           const value = await getMemoValue(passedCanceler);
-        })(canceler),
+        })(innerCanceler),
       ]);
     }
     if (result && typeof result !== "boolean") {

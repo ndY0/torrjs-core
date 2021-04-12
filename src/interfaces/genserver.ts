@@ -59,32 +59,47 @@ abstract class GenServer {
     return state;
   }
   static API: { [key: string]: string } = {};
-  static EXTERNAL_EMITTERS_KEYS: { [key: string]: string } = {};
+  static EXTERNAL_EMITTERS_KEYS: Record<string, string> = {};
   static async *call<T, U extends typeof GenServer, V extends GenServer>(
-    [target, serverId]: [U, string],
+    [target, serverId, transport]:
+      | [U, string]
+      | [U, string, keyof U["EXTERNAL_EMITTERS_KEYS"] | undefined],
     self: V,
     action: keyof U["API"],
     args?: Record<string | number | symbol, any>,
     timeout: number = 5000
   ): AsyncGenerator<void, T, unknown> {
     return yield* call<T, void>(async function* (...args: any[]) {
-      await target.eventEmitter.emit(
+      await (transport
+        ? <TransportEmitter>target.externalEventEmitters.get(<string>transport)
+        : target.eventEmitter
+      ).emit(
         { event: serverId },
         new ServerEvent(<string>action, args, self[keyForIdSymbol])
       );
-      return yield* take<T>(self[keyForIdSymbol], target.eventEmitter, timeout);
+      return yield* take<T>(
+        self[keyForIdSymbol],
+        transport
+          ? <TransportEmitter>(
+              target.externalEventEmitters.get(<string>transport)
+            )
+          : target.eventEmitter,
+        timeout
+      );
     }, args);
   }
   static *cast<U extends typeof GenServer>(
-    [target, serverId]: [U, string],
+    [target, serverId, transport]:
+      | [U, string]
+      | [U, string, keyof U["EXTERNAL_EMITTERS_KEYS"] | undefined],
     action: keyof U["API"],
     args?: Record<string | number | symbol, any>
   ): Generator<null, null, unknown> {
     return yield* cast(async function* (...args: any[]) {
-      target.eventEmitter.emit(
-        { event: serverId },
-        new ServerEvent(<string>action, args)
-      );
+      (transport
+        ? <TransportEmitter>target.externalEventEmitters.get(<string>transport)
+        : target.eventEmitter
+      ).emit({ event: serverId }, new ServerEvent(<string>action, args));
     }, args);
   }
 }
