@@ -10,6 +10,7 @@ import EventEmitter from "events";
 abstract class GenServer {
   [keyForIdSymbol]: string = v1();
   static eventEmitter: TransportEmitter;
+  static externalEventEmitters: Map<string, TransportEmitter>;
   [key: string]: (...args: any[]) => AsyncGenerator;
   static [keyForMapSymbol]: Map<string, string> = new Map<string, string>();
   protected abstract init(...args: unknown[]): AsyncGenerator;
@@ -58,6 +59,7 @@ abstract class GenServer {
     return state;
   }
   static API: { [key: string]: string } = {};
+  static EXTERNAL_EMITTERS_KEYS: { [key: string]: string } = {};
   static async *call<T, U extends typeof GenServer, V extends GenServer>(
     [target, serverId]: [U, string],
     self: V,
