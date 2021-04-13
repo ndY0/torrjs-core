@@ -10,7 +10,7 @@ import EventEmitter from "events";
 abstract class GenServer {
   [keyForIdSymbol]: string = v1();
   static eventEmitter: TransportEmitter;
-  static externalEventEmitters: Map<string, TransportEmitter> = new Map();
+  static externalEventEmitters: Map<string, TransportEmitter>;
   [key: string]: (...args: any[]) => AsyncGenerator;
   static [keyForMapSymbol]: Map<string, string> = new Map<string, string>();
   protected abstract init(...args: unknown[]): AsyncGenerator;
@@ -43,6 +43,7 @@ abstract class GenServer {
       [context.eventEmitter, ...context.externalEventEmitters.values()],
       cancelerPromise
     );
+    console.log(event);
     if (event) {
       const funcName = context[keyForMapSymbol].get(event.action);
       let result: ServerReply;
@@ -52,7 +53,10 @@ abstract class GenServer {
         return state;
       }
       if (event.caller && result.type === ReplyTypes.REPLY) {
-        context.eventEmitter.emit({ event: event.caller }, result.reply);
+        (event.transport === "internal"
+          ? context.eventEmitter
+          : <TransportEmitter>context.externalEventEmitters.get(event.transport)
+        ).emit({ event: event.caller }, result.reply);
       }
       return result.newState;
     }
@@ -60,10 +64,15 @@ abstract class GenServer {
   }
   static API: { [key: string]: string } = {};
   static EXTERNAL_EMITTERS_KEYS: Record<string, string> = {};
-  static async *call<T, U extends typeof GenServer, V extends GenServer>(
+  static async *call<
+    T,
+    U extends typeof GenServer,
+    V extends GenServer,
+    W extends string = string
+  >(
     [target, serverId, transport]:
       | [U, string]
-      | [U, string, keyof U["EXTERNAL_EMITTERS_KEYS"] | undefined],
+      | [U, string, (W & (W extends "internal" ? never : W)) | undefined],
     self: V,
     action: keyof U["API"],
     args?: Record<string | number | symbol, any>,
@@ -75,7 +84,12 @@ abstract class GenServer {
         : target.eventEmitter
       ).emit(
         { event: serverId },
-        new ServerEvent(<string>action, args, self[keyForIdSymbol])
+        new ServerEvent(
+          <string>action,
+          transport || "internal",
+          args,
+          self[keyForIdSymbol]
+        )
       );
       return yield* take<T>(
         self[keyForIdSymbol],
@@ -88,10 +102,10 @@ abstract class GenServer {
       );
     }, args);
   }
-  static *cast<U extends typeof GenServer>(
+  static *cast<U extends typeof GenServer, V extends string = string>(
     [target, serverId, transport]:
       | [U, string]
-      | [U, string, keyof U["EXTERNAL_EMITTERS_KEYS"] | undefined],
+      | [U, string, (V & (V extends "internal" ? never : V)) | undefined],
     action: keyof U["API"],
     args?: Record<string | number | symbol, any>
   ): Generator<null, null, unknown> {
@@ -99,7 +113,10 @@ abstract class GenServer {
       (transport
         ? <TransportEmitter>target.externalEventEmitters.get(<string>transport)
         : target.eventEmitter
-      ).emit({ event: serverId }, new ServerEvent(<string>action, args));
+      ).emit(
+        { event: serverId },
+        new ServerEvent(<string>action, transport || "internal", args)
+      );
     }, args);
   }
 }

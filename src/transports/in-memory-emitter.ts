@@ -35,20 +35,21 @@ class InMemoryEmitter implements TransportEmitter {
     }
     const innerCanceler = memo(true);
     let result = stream.read(1);
+    console.log(result);
     if (!result) {
       result = await Promise.race([
-        (async function (passedCanceler) {
+        (async function (passedCanceler, outterCanceler) {
           await promisify(cure(stream.once, stream)("readable"), stream);
           const shouldRun = (
             await Promise.all([
               getMemoValue(passedCanceler),
-              getMemoValue(canceler),
+              getMemoValue(outterCanceler),
             ])
           ).reduce((acc, curr) => acc && curr, true);
           if (shouldRun) {
             return (<Duplex>stream).read(1);
           }
-        })(innerCanceler),
+        })(innerCanceler, canceler),
         (async function (passedCanceler) {
           await delay(timeout || 10_000);
           await putMemoValue(passedCanceler, false);

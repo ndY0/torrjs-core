@@ -5,7 +5,9 @@ import { keyForMapSymbol, keyForMetadataMapSymbol } from "../utils/symbols";
 
 function Server(
   transport: TransportEmitter,
-  externalTransports?: { [key: string]: TransportEmitter }
+  externalTransports?: { [key: string]: TransportEmitter } & {
+    internal?: never;
+  }
 ) {
   return <T extends typeof GenServer>(constructor: T) => {
     const map: Map<string, string> =
@@ -23,7 +25,7 @@ function Server(
         externalTransportsMap.set(key, externalTransports[key]);
       });
     }
-    Reflect.defineProperty(constructor, "externalEventEmitter", {
+    Reflect.defineProperty(constructor, "externalEventEmitters", {
       configurable: false,
       enumerable: false,
       value: externalTransportsMap,

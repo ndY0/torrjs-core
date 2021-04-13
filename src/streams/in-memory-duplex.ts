@@ -13,8 +13,9 @@ class InMemoryDuplex extends PassThrough {
   public emit(event: string, ...data: any[]): boolean {
     const listeners = this.listeners(event);
     if (listeners.length !== 0) {
-      const listener = <Function>listeners.pop();
+      const listener = <(...args: any[]) => void>listeners.shift();
       listener(...data);
+      this.removeListener(event, listener);
       return true;
     } else {
       return false;

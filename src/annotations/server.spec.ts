@@ -16,6 +16,17 @@ class TestGenServer extends GenServer {
   }
 }
 
+@Server(new InMemoryEmitter(10), { test: new InMemoryEmitter(10) })
+class TestGenServerExternal extends GenServer {
+  public async *init(startArgs: null) {
+    return [];
+  }
+  @handle("test")
+  private async *handleTest(state: any[]) {
+    return { type: ReplyTypes.REPLY, newState: state, reply: null };
+  }
+}
+
 @Server(new InMemoryEmitter(10))
 class TestGenServerEmpty extends GenServer {
   public async *init(startArgs: null) {
@@ -73,5 +84,18 @@ describe("Server", () => {
     expect(map?.value.size).toEqual(0);
     expect(mapMetadata).toBeUndefined();
     expect(eventEmitter?.value).toBeInstanceOf(InMemoryEmitter);
+  });
+  it(`should attach to the class object the provided external emitters`, () => {
+    const externalEventEmitters:
+      | PropertyDescriptor
+      | undefined = Reflect.getOwnPropertyDescriptor(
+      TestGenServerExternal,
+      "externalEventEmitters"
+    );
+    TestGenServerExternal;
+    expect(externalEventEmitters?.value.size).toEqual(1);
+    expect(externalEventEmitters?.value.get("test")).toBeInstanceOf(
+      InMemoryEmitter
+    );
   });
 });

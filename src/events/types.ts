@@ -1,6 +1,7 @@
 class ServerEvent<T = Record<string | number | symbol, any>> {
   constructor(
     public action: string,
+    public transport: string,
     public data: T[],
     public caller?: string
   ) {}
