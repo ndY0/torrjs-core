@@ -1,5 +1,8 @@
+import "reflect-metadata";
 import { run, call, cast, take } from ".";
 import { InMemoryEmitter } from "../transports/in-memory-emitter";
+import EventEmitter from "events";
+import { getMemoPromise } from "../utils";
 
 describe("run", () => {
   it("should iterable an async generator until it returns done, with given args, and return the result", async () => {
@@ -68,30 +71,89 @@ describe("take", () => {
     ]);
     expect(computationResult[0].value).toEqual({ value: "test" });
   });
-  it("should await for an event to be triggerred by an event emitter, and return undefined if reaching provided promise timeout", async () => {
+  it(`should await for an event to be triggerred by an event emitter,
+  and return undefined if reaching provided promise timeout, triggering the cancel memo in the process`, async () => {
     const emitter = new InMemoryEmitter(1);
+    const onceFunctionDescriptor = Reflect.getOwnPropertyDescriptor(
+      emitter,
+      "once"
+    );
+    let cancelerRef: AsyncGenerator<[boolean, EventEmitter], never, boolean>;
+    let cancelerPromise: Promise<boolean>;
+    const proxy = (
+      {
+        timeout,
+        event,
+        canceler,
+      }: {
+        timeout?: number;
+        event: string | symbol;
+        canceler: AsyncGenerator<[boolean, EventEmitter], never, boolean>;
+      },
+      listener: (...args: any[]) => void
+    ) => {
+      cancelerRef = canceler;
+      return onceFunctionDescriptor?.value(
+        { timeout, event, canceler },
+        listener
+      );
+    };
+    Reflect.defineProperty(emitter, "once", {
+      ...onceFunctionDescriptor,
+      value: proxy,
+    });
     const timeout = new Promise<void>((resolve) =>
       setTimeout(() => resolve(), 500)
     );
     const computationResult = await Promise.all([
       take("test", emitter, timeout).next(),
       new Promise<void>((resolve) => {
+        cancelerPromise = getMemoPromise(cancelerRef);
+        cancelerPromise.then((value) => expect(value).toBeFalsy());
         setTimeout(() => {
           emitter.emit({ event: "test" }, { value: "test" });
           resolve();
         }, 2000);
-      }).catch(console.log),
+      }),
     ]);
     expect(computationResult[0].value).toEqual(undefined);
   });
-  it("should await for an event to be triggerred by an event emitter, and return undefined if reaching default 5_000ms timeout", async () => {
+  it(`should await for an event to be triggerred by an event emitter,
+  and return undefined if reaching default 5_000ms timeout, triggering the cancel memo in the process`, async () => {
     const emitter = new InMemoryEmitter(1);
-    const timeout = new Promise<void>((resolve) =>
-      setTimeout(() => resolve(), 500)
+    const onceFunctionDescriptor = Reflect.getOwnPropertyDescriptor(
+      emitter,
+      "once"
     );
+    let cancelerRef: AsyncGenerator<[boolean, EventEmitter], never, boolean>;
+    let cancelerPromise: Promise<boolean>;
+    const proxy = (
+      {
+        timeout,
+        event,
+        canceler,
+      }: {
+        timeout?: number;
+        event: string | symbol;
+        canceler: AsyncGenerator<[boolean, EventEmitter], never, boolean>;
+      },
+      listener: (...args: any[]) => void
+    ) => {
+      cancelerRef = canceler;
+      return onceFunctionDescriptor?.value(
+        { timeout, event, canceler },
+        listener
+      );
+    };
+    Reflect.defineProperty(emitter, "once", {
+      ...onceFunctionDescriptor,
+      value: proxy,
+    });
     const computationResult = await Promise.all([
       take("test", emitter).next(),
       new Promise<void>((resolve) => {
+        cancelerPromise = getMemoPromise(cancelerRef);
+        cancelerPromise.then((value) => expect(value).toBeFalsy());
         setTimeout(() => {
           emitter.emit({ event: "test" }, { value: "test" });
           resolve();
@@ -100,4 +162,8 @@ describe("take", () => {
     ]);
     expect(computationResult[0].value).toEqual(undefined);
   });
+});
+
+describe("takeAny", () => {
+  it("", async () => {});
 });

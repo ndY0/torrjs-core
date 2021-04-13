@@ -53,7 +53,7 @@ async function* takeAny<Treturn>(
   timeout: number | Promise<any> = 5_000
 ) {
   const canceler = memo(true);
-  return await Promise.race([
+  return await Promise.race<Promise<Treturn>>([
     ...emitters.map((emitter) =>
       promisify<Treturn>(
         cure(emitter.once, emitter)({ event, canceler }),

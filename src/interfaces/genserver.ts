@@ -1,5 +1,5 @@
 import { v1 } from "uuid";
-import { call, cast, take } from "../effects";
+import { call, cast, take, takeAny } from "../effects";
 import { ServerEvent, ServerReply, ReplyTypes } from "../events/types";
 import { keyForIdSymbol, keyForMapSymbol } from "../utils/symbols";
 import { ChildSpec, ChildRestartStrategy } from "../supervision/types";
@@ -10,7 +10,7 @@ import EventEmitter from "events";
 abstract class GenServer {
   [keyForIdSymbol]: string = v1();
   static eventEmitter: TransportEmitter;
-  static externalEventEmitters: Map<string, TransportEmitter>;
+  static externalEventEmitters: Map<string, TransportEmitter> = new Map();
   [key: string]: (...args: any[]) => AsyncGenerator;
   static [keyForMapSymbol]: Map<string, string> = new Map<string, string>();
   protected abstract init(...args: unknown[]): AsyncGenerator;
@@ -38,9 +38,9 @@ abstract class GenServer {
     context: U,
     state: any
   ) {
-    const event = yield* take<ServerEvent>(
+    const event = yield* takeAny<ServerEvent>(
       this[keyForIdSymbol],
-      context.eventEmitter,
+      [context.eventEmitter, ...context.externalEventEmitters.values()],
       cancelerPromise
     );
     if (event) {
