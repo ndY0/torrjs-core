@@ -1,5 +1,5 @@
 import { TransportEmitter } from "./interface";
-import { Duplex, EventEmitter } from "stream";
+import { Duplex, EventEmitter, PassThrough } from "stream";
 import { InMemoryDuplex } from "../streams/in-memory-duplex";
 import {
   memo,
@@ -9,15 +9,20 @@ import {
   cure,
   delay,
 } from "../utils";
-import { MultiplexReadable, combineStreams } from "../streams/combine-streams";
+import { combineStreams } from "../streams/combine-streams";
 
 class CombineEmitter implements TransportEmitter {
   private stream: Duplex;
   constructor(streams: Duplex[]) {
-    this.stream = combineStreams(streams);
+    try {
+      this.stream = combineStreams(streams);
+    } catch (e) {
+      console.log(e);
+      this.stream = combineStreams(streams);
+    }
   }
   getInternalStreamType() {
-    return MultiplexReadable;
+    return PassThrough;
   }
   resetInternalStreams(): void {
     throw new Error("this stream shouldn't be reseted");

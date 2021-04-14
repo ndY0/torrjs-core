@@ -72,44 +72,44 @@ describe("InMemoryEmitter", () => {
       );
       expect(res).toBeUndefined();
     });
-    it("should call listeners one by one if an event is triggered", async () => {
-      const emitter = new InMemoryEmitter(10);
-      const canceler = memo(true);
-      const streams = Reflect.getOwnPropertyDescriptor(emitter, "streams");
-      const spies = Array.from([null, null, null, null]).map((_) => jest.fn());
-      const res = await Promise.all([
-        ...Array.from([null, null, null, null]).map((_, index) =>
-          emitter.once({ event: "test", canceler }, spies[index])
-        ),
-        (async () => {
-          await delay(200);
-          await emitter.emit({ event: "test" }, {});
-          await delay(200);
-          expect(spies[0]).toHaveBeenCalledTimes(1);
-          expect(spies[1]).toHaveBeenCalledTimes(0);
-          expect(spies[2]).toHaveBeenCalledTimes(0);
-          expect(spies[3]).toHaveBeenCalledTimes(0);
-          await emitter.emit({ event: "test" }, {});
-          await delay(200);
-          expect(spies[0]).toHaveBeenCalledTimes(1);
-          expect(spies[1]).toHaveBeenCalledTimes(1);
-          expect(spies[2]).toHaveBeenCalledTimes(0);
-          expect(spies[3]).toHaveBeenCalledTimes(0);
-          await emitter.emit({ event: "test" }, {});
-          await delay(200);
-          expect(spies[0]).toHaveBeenCalledTimes(1);
-          expect(spies[1]).toHaveBeenCalledTimes(1);
-          expect(spies[2]).toHaveBeenCalledTimes(1);
-          expect(spies[3]).toHaveBeenCalledTimes(0);
-          await emitter.emit({ event: "test" }, {});
-          await delay(200);
-          expect(spies[0]).toHaveBeenCalledTimes(1);
-          expect(spies[1]).toHaveBeenCalledTimes(1);
-          expect(spies[2]).toHaveBeenCalledTimes(1);
-          expect(spies[3]).toHaveBeenCalledTimes(1);
-        })(),
-      ]);
-    });
+    // it("should call listeners one by one if an event is triggered", async () => {
+    //   const emitter = new InMemoryEmitter(10);
+    //   const canceler = memo(true);
+    //   const streams = Reflect.getOwnPropertyDescriptor(emitter, "streams");
+    //   const spies = Array.from([null, null, null, null]).map((_) => jest.fn());
+    //   const res = await Promise.all([
+    //     ...Array.from([null, null, null, null]).map((_, index) =>
+    //       emitter.once({ event: "test", canceler }, spies[index])
+    //     ),
+    //     (async () => {
+    //       await delay(200);
+    //       await emitter.emit({ event: "test" }, {});
+    //       await delay(200);
+    //       expect(spies[0]).toHaveBeenCalledTimes(1);
+    //       expect(spies[1]).toHaveBeenCalledTimes(0);
+    //       expect(spies[2]).toHaveBeenCalledTimes(0);
+    //       expect(spies[3]).toHaveBeenCalledTimes(0);
+    //       await emitter.emit({ event: "test" }, {});
+    //       await delay(200);
+    //       expect(spies[0]).toHaveBeenCalledTimes(1);
+    //       expect(spies[1]).toHaveBeenCalledTimes(1);
+    //       expect(spies[2]).toHaveBeenCalledTimes(0);
+    //       expect(spies[3]).toHaveBeenCalledTimes(0);
+    //       await emitter.emit({ event: "test" }, {});
+    //       await delay(200);
+    //       expect(spies[0]).toHaveBeenCalledTimes(1);
+    //       expect(spies[1]).toHaveBeenCalledTimes(1);
+    //       expect(spies[2]).toHaveBeenCalledTimes(1);
+    //       expect(spies[3]).toHaveBeenCalledTimes(0);
+    //       await emitter.emit({ event: "test" }, {});
+    //       await delay(200);
+    //       expect(spies[0]).toHaveBeenCalledTimes(1);
+    //       expect(spies[1]).toHaveBeenCalledTimes(1);
+    //       expect(spies[2]).toHaveBeenCalledTimes(1);
+    //       expect(spies[3]).toHaveBeenCalledTimes(1);
+    //     })(),
+    //   ]);
+    // });
     it("should avoid reading from inner stream if cancellation event is triggered", async () => {
       const emitter = new InMemoryEmitter(10);
       const canceler = memo(true);

@@ -139,225 +139,225 @@ describe("GenServer", () => {
     });
   });
   describe("start", () => {
-    // it("should start the server loop, and stop it when the canceler is triggered", async () => {
-    //   const canceler = memo(true);
-    //   const cancelerPromise = getMemoPromise(canceler);
-    //   const testDecoratedServer = new TestDecoratedGenServer();
-    //   const startGenerator = testDecoratedServer.start(
-    //     {},
-    //     TestDecoratedGenServer,
-    //     canceler,
-    //     cancelerPromise
-    //   );
-    //   const res = await Promise.all([
-    //     startGenerator.next(),
-    //     (async () => {
-    //       await delay(5_000);
-    //       await putMemoValue(canceler, false);
-    //     })(),
-    //   ]);
-    //   expect(res[0].value).toBeUndefined();
-    //   expect(res[0].done).toBeTruthy();
-    // });
-    // it("should cast the event to the attached function", async () => {
-    //   const canceler = memo(true);
-    //   const cancelerPromise = getMemoPromise(canceler);
-    //   const testDecoratedServer = new TestDecoratedGenServer();
-    //   const serverIdDescriptor = Reflect.getOwnPropertyDescriptor(
-    //     testDecoratedServer,
-    //     keyForIdSymbol
-    //   );
-    //   const serverId = serverIdDescriptor?.value;
-    //   const spyTestCast = jest.spyOn(testDecoratedServer, "handleTestCast");
-    //   const startGenerator = testDecoratedServer.start(
-    //     {},
-    //     TestDecoratedGenServer,
-    //     canceler,
-    //     cancelerPromise
-    //   );
-    //   const res = await Promise.all([
-    //     startGenerator.next(),
-    //     (async () => {
-    //       await delay(200);
-    //       await TestDecoratedGenServer.testCast(serverId, {
-    //         test: "test",
-    //       }).next();
-    //       await delay(200);
-    //       await putMemoValue(canceler, false);
-    //     })(),
-    //   ]);
-    //   expect(spyTestCast).toHaveBeenLastCalledWith([], { test: "test" });
-    // });
-    // it("should cast the event to the attached function, and on second call, pass the previous state", async () => {
-    //   const canceler = memo(true);
-    //   const cancelerPromise = getMemoPromise(canceler);
-    //   const testDecoratedServer = new TestDecoratedGenServer();
-    //   //   const testDecoratedClient = new TestDecoratedGenServer();
-    //   const serverIdDescriptor = Reflect.getOwnPropertyDescriptor(
-    //     testDecoratedServer,
-    //     keyForIdSymbol
-    //   );
-    //   const serverId = serverIdDescriptor?.value;
-    //   const spyTestCast = jest.spyOn(testDecoratedServer, "handleTestCast");
-    //   const startGenerator = testDecoratedServer.start(
-    //     {},
-    //     TestDecoratedGenServer,
-    //     canceler,
-    //     cancelerPromise
-    //   );
-    //   const res = await Promise.all([
-    //     startGenerator.next(),
-    //     (async () => {
-    //       await delay(200);
-    //       await TestDecoratedGenServer.testCast(serverId, {
-    //         test: "test",
-    //       }).next();
-    //       await TestDecoratedGenServer.testCast(serverId, {
-    //         test: "test",
-    //       }).next();
-    //       await delay(200);
-    //       await putMemoValue(canceler, false);
-    //     })(),
-    //   ]);
-    //   expect(spyTestCast).toHaveBeenLastCalledWith([{ test: "test" }], {
-    //     test: "test",
-    //   });
-    // });
-    // it("should call the event to the attached function, and pass back the value to the caller", async () => {
-    //   const canceler = memo(true);
-    //   const cancelerPromise = getMemoPromise(canceler);
-    //   const testDecoratedServer = new TestDecoratedGenServer();
-    //   const testDecoratedClient = new TestDecoratedGenServer();
-    //   const serverIdDescriptor = Reflect.getOwnPropertyDescriptor(
-    //     testDecoratedServer,
-    //     keyForIdSymbol
-    //   );
-    //   const serverId = serverIdDescriptor?.value;
-    //   const spyTestCall = jest.spyOn(testDecoratedServer, "handleTestCall");
-    //   const startGenerator = testDecoratedServer.start(
-    //     {},
-    //     TestDecoratedGenServer,
-    //     canceler,
-    //     cancelerPromise
-    //   );
-    //   const res = await Promise.all([
-    //     startGenerator.next(),
-    //     (async () => {
-    //       await delay(200);
-    //       await TestDecoratedGenServer.testCast(serverId, {
-    //         test: "test",
-    //       }).next();
-    //       await delay(200);
-    //       const res = await TestDecoratedGenServer.testCall(
-    //         serverId,
-    //         testDecoratedClient
-    //       ).next();
-    //       await putMemoValue(canceler, false);
-    //       await delay(200);
-    //       return res;
-    //     })(),
-    //   ]);
-    //   expect(spyTestCall).toHaveBeenLastCalledWith(
-    //     [{ test: "test" }],
-    //     undefined
-    //   );
-    //   expect(res[1].value).toEqual({ test: "test" });
-    // });
-    // it("should call the event to the attached function, and pass back the value to the caller", async () => {
-    //   const canceler = memo(true);
-    //   const cancelerPromise = getMemoPromise(canceler);
-    //   const testDecoratedServer = new TestDecoratedGenServer();
-    //   const testDecoratedClient = new TestDecoratedGenServer();
-    //   const serverIdDescriptor = Reflect.getOwnPropertyDescriptor(
-    //     testDecoratedServer,
-    //     keyForIdSymbol
-    //   );
-    //   const serverId = serverIdDescriptor?.value;
-    //   const spyTestCall = jest.spyOn(testDecoratedServer, "handleTestCall");
-    //   const startGenerator = testDecoratedServer.start(
-    //     {},
-    //     TestDecoratedGenServer,
-    //     canceler,
-    //     cancelerPromise
-    //   );
-    //   const res = await Promise.all([
-    //     startGenerator.next(),
-    //     (async () => {
-    //       await delay(200);
-    //       await TestDecoratedGenServer.testCast(serverId, {
-    //         test: "test",
-    //       }).next();
-    //       await TestDecoratedGenServer.testCast(serverId, {
-    //         test: "test",
-    //       }).next();
-    //       await delay(200);
-    //       const res1 = await TestDecoratedGenServer.testCall(
-    //         serverId,
-    //         testDecoratedClient
-    //       ).next();
-    //       const res2 = await TestDecoratedGenServer.testCall(
-    //         serverId,
-    //         testDecoratedClient
-    //       ).next();
-    //       await putMemoValue(canceler, false);
-    //       await delay(200);
-    //       return { first: res1.value, second: res2.value };
-    //     })(),
-    //   ]);
-    //   expect(spyTestCall).toHaveBeenNthCalledWith(
-    //     1,
-    //     [{ test: "test" }, { test: "test" }],
-    //     undefined
-    //   );
-    //   expect(spyTestCall).toHaveBeenNthCalledWith(
-    //     2,
-    //     [{ test: "test" }],
-    //     undefined
-    //   );
-    //   expect(res[1]).toEqual({
-    //     first: { test: "test" },
-    //     second: { test: "test" },
-    //   });
-    // });
-    // it("shouldn't call anything if unknown event is provided, and just return the state", async () => {
-    //   const canceler = memo(true);
-    //   const cancelerPromise = getMemoPromise(canceler);
-    //   const testDecoratedServer = new TestDecoratedGenServer();
-    //   const serverIdDescriptor = Reflect.getOwnPropertyDescriptor(
-    //     testDecoratedServer,
-    //     keyForIdSymbol
-    //   );
-    //   const serverId = serverIdDescriptor?.value;
-    //   const spyTestCall = jest.spyOn(testDecoratedServer, "handleTestCall");
-    //   const spyTestCast = jest.spyOn(testDecoratedServer, "handleTestCast");
-    //   const startGenerator = testDecoratedServer.start(
-    //     {},
-    //     TestDecoratedGenServer,
-    //     canceler,
-    //     cancelerPromise
-    //   );
-    //   const res = await Promise.all([
-    //     startGenerator.next(),
-    //     (async () => {
-    //       await delay(200);
-    //       await TestDecoratedGenServer.testCast(serverId, {
-    //         test: "test",
-    //       }).next();
-    //       GenServer.cast([TestDecoratedGenServer, serverId], "unknown").next();
-    //       await TestDecoratedGenServer.testCast(serverId, {
-    //         test: "test",
-    //       }).next();
-    //       await delay(200);
-    //       await putMemoValue(canceler, false);
-    //       await delay(200);
-    //     })(),
-    //   ]);
-    //   expect(spyTestCall).not.toHaveBeenCalled();
-    //   expect(spyTestCast).toHaveBeenCalledTimes(2);
-    //   expect(spyTestCast).toHaveBeenNthCalledWith(2, [{ test: "test" }], {
-    //     test: "test",
-    //   });
-    // });
+    it("should start the server loop, and stop it when the canceler is triggered", async () => {
+      const canceler = memo(true);
+      const cancelerPromise = getMemoPromise(canceler);
+      const testDecoratedServer = new TestDecoratedGenServer();
+      const startGenerator = testDecoratedServer.start(
+        {},
+        TestDecoratedGenServer,
+        canceler,
+        cancelerPromise
+      );
+      const res = await Promise.all([
+        startGenerator.next(),
+        (async () => {
+          await delay(5_000);
+          await putMemoValue(canceler, false);
+        })(),
+      ]);
+      expect(res[0].value).toBeUndefined();
+      expect(res[0].done).toBeTruthy();
+    });
+    it("should cast the event to the attached function", async () => {
+      const canceler = memo(true);
+      const cancelerPromise = getMemoPromise(canceler);
+      const testDecoratedServer = new TestDecoratedGenServer();
+      const serverIdDescriptor = Reflect.getOwnPropertyDescriptor(
+        testDecoratedServer,
+        keyForIdSymbol
+      );
+      const serverId = serverIdDescriptor?.value;
+      const spyTestCast = jest.spyOn(testDecoratedServer, "handleTestCast");
+      const startGenerator = testDecoratedServer.start(
+        {},
+        TestDecoratedGenServer,
+        canceler,
+        cancelerPromise
+      );
+      const res = await Promise.all([
+        startGenerator.next(),
+        (async () => {
+          await delay(200);
+          await TestDecoratedGenServer.testCast(serverId, {
+            test: "test",
+          }).next();
+          await delay(200);
+          await putMemoValue(canceler, false);
+        })(),
+      ]);
+      expect(spyTestCast).toHaveBeenLastCalledWith([], { test: "test" });
+    });
+    it("should cast the event to the attached function, and on second call, pass the previous state", async () => {
+      const canceler = memo(true);
+      const cancelerPromise = getMemoPromise(canceler);
+      const testDecoratedServer = new TestDecoratedGenServer();
+      //   const testDecoratedClient = new TestDecoratedGenServer();
+      const serverIdDescriptor = Reflect.getOwnPropertyDescriptor(
+        testDecoratedServer,
+        keyForIdSymbol
+      );
+      const serverId = serverIdDescriptor?.value;
+      const spyTestCast = jest.spyOn(testDecoratedServer, "handleTestCast");
+      const startGenerator = testDecoratedServer.start(
+        {},
+        TestDecoratedGenServer,
+        canceler,
+        cancelerPromise
+      );
+      const res = await Promise.all([
+        startGenerator.next(),
+        (async () => {
+          await delay(200);
+          await TestDecoratedGenServer.testCast(serverId, {
+            test: "test",
+          }).next();
+          await TestDecoratedGenServer.testCast(serverId, {
+            test: "test",
+          }).next();
+          await delay(200);
+          await putMemoValue(canceler, false);
+        })(),
+      ]);
+      expect(spyTestCast).toHaveBeenLastCalledWith([{ test: "test" }], {
+        test: "test",
+      });
+    });
+    it("should call the event to the attached function, and pass back the value to the caller", async () => {
+      const canceler = memo(true);
+      const cancelerPromise = getMemoPromise(canceler);
+      const testDecoratedServer = new TestDecoratedGenServer();
+      const testDecoratedClient = new TestDecoratedGenServer();
+      const serverIdDescriptor = Reflect.getOwnPropertyDescriptor(
+        testDecoratedServer,
+        keyForIdSymbol
+      );
+      const serverId = serverIdDescriptor?.value;
+      const spyTestCall = jest.spyOn(testDecoratedServer, "handleTestCall");
+      const startGenerator = testDecoratedServer.start(
+        {},
+        TestDecoratedGenServer,
+        canceler,
+        cancelerPromise
+      );
+      const res = await Promise.all([
+        startGenerator.next(),
+        (async () => {
+          await delay(200);
+          await TestDecoratedGenServer.testCast(serverId, {
+            test: "test",
+          }).next();
+          await delay(200);
+          const res = await TestDecoratedGenServer.testCall(
+            serverId,
+            testDecoratedClient
+          ).next();
+          await putMemoValue(canceler, false);
+          await delay(200);
+          return res;
+        })(),
+      ]);
+      expect(spyTestCall).toHaveBeenLastCalledWith(
+        [{ test: "test" }],
+        undefined
+      );
+      expect(res[1].value).toEqual({ test: "test" });
+    });
+    it("should call the event to the attached function, and pass back the value to the caller", async () => {
+      const canceler = memo(true);
+      const cancelerPromise = getMemoPromise(canceler);
+      const testDecoratedServer = new TestDecoratedGenServer();
+      const testDecoratedClient = new TestDecoratedGenServer();
+      const serverIdDescriptor = Reflect.getOwnPropertyDescriptor(
+        testDecoratedServer,
+        keyForIdSymbol
+      );
+      const serverId = serverIdDescriptor?.value;
+      const spyTestCall = jest.spyOn(testDecoratedServer, "handleTestCall");
+      const startGenerator = testDecoratedServer.start(
+        {},
+        TestDecoratedGenServer,
+        canceler,
+        cancelerPromise
+      );
+      const res = await Promise.all([
+        startGenerator.next(),
+        (async () => {
+          await delay(200);
+          await TestDecoratedGenServer.testCast(serverId, {
+            test: "test",
+          }).next();
+          await TestDecoratedGenServer.testCast(serverId, {
+            test: "test",
+          }).next();
+          await delay(200);
+          const res1 = await TestDecoratedGenServer.testCall(
+            serverId,
+            testDecoratedClient
+          ).next();
+          const res2 = await TestDecoratedGenServer.testCall(
+            serverId,
+            testDecoratedClient
+          ).next();
+          await putMemoValue(canceler, false);
+          await delay(200);
+          return { first: res1.value, second: res2.value };
+        })(),
+      ]);
+      expect(spyTestCall).toHaveBeenNthCalledWith(
+        1,
+        [{ test: "test" }, { test: "test" }],
+        undefined
+      );
+      expect(spyTestCall).toHaveBeenNthCalledWith(
+        2,
+        [{ test: "test" }],
+        undefined
+      );
+      expect(res[1]).toEqual({
+        first: { test: "test" },
+        second: { test: "test" },
+      });
+    });
+    it("shouldn't call anything if unknown event is provided, and just return the state", async () => {
+      const canceler = memo(true);
+      const cancelerPromise = getMemoPromise(canceler);
+      const testDecoratedServer = new TestDecoratedGenServer();
+      const serverIdDescriptor = Reflect.getOwnPropertyDescriptor(
+        testDecoratedServer,
+        keyForIdSymbol
+      );
+      const serverId = serverIdDescriptor?.value;
+      const spyTestCall = jest.spyOn(testDecoratedServer, "handleTestCall");
+      const spyTestCast = jest.spyOn(testDecoratedServer, "handleTestCast");
+      const startGenerator = testDecoratedServer.start(
+        {},
+        TestDecoratedGenServer,
+        canceler,
+        cancelerPromise
+      );
+      const res = await Promise.all([
+        startGenerator.next(),
+        (async () => {
+          await delay(200);
+          await TestDecoratedGenServer.testCast(serverId, {
+            test: "test",
+          }).next();
+          GenServer.cast([TestDecoratedGenServer, serverId], "unknown").next();
+          await TestDecoratedGenServer.testCast(serverId, {
+            test: "test",
+          }).next();
+          await delay(200);
+          await putMemoValue(canceler, false);
+          await delay(200);
+        })(),
+      ]);
+      expect(spyTestCall).not.toHaveBeenCalled();
+      expect(spyTestCast).toHaveBeenCalledTimes(2);
+      expect(spyTestCast).toHaveBeenNthCalledWith(2, [{ test: "test" }], {
+        test: "test",
+      });
+    });
     it("should consume events from external sources and the internal one, when any of the listener on them resolve", async () => {
       const canceler = memo(true);
       const cancelerPromise = getMemoPromise(canceler);
@@ -385,10 +385,6 @@ describe("GenServer", () => {
           await TestDecoratedExternalGenServer.testCast(serverId, {
             test: "test",
           }).next();
-          await delay(500);
-          await TestDecoratedExternalGenServer.testCastExternal(serverId, {
-            test: "test",
-          }).next();
           await TestDecoratedExternalGenServer.testCastExternal(serverId, {
             test: "test",
           }).next();
@@ -402,12 +398,11 @@ describe("GenServer", () => {
             serverId,
             testDecoratedClient
           ).next();
-          await delay(6000);
+          await delay(500);
           await putMemoValue(canceler, false);
           return { first: res1.value, second: res2.value };
         })(),
       ]);
-      console.log(res);
       expect(spyTestCall).toHaveBeenNthCalledWith(
         1,
         [{ test: "test" }, { test: "test" }],

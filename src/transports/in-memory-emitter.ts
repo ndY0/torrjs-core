@@ -47,7 +47,6 @@ class InMemoryEmitter implements TransportEmitter {
     }
     const innerCanceler = memo(true);
     let result = stream.read(1);
-    console.log(result);
     if (!result) {
       result = await Promise.race([
         (async function (passedCanceler, outterCanceler) {
