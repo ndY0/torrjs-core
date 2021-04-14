@@ -9,24 +9,24 @@ import {
   cure,
   delay,
 } from "../utils";
+import { MultiplexReadable, combineStreams } from "../streams/combine-streams";
 
-class InMemoryEmitter implements TransportEmitter {
-  private streams: Map<string | symbol, Duplex> = new Map<
-    string | symbol,
-    Duplex
-  >();
-  public constructor(private readonly queueSize: number) {}
+class CombineEmitter implements TransportEmitter {
+  private stream: Duplex;
+  constructor(streams: Duplex[]) {
+    this.stream = combineStreams(streams);
+  }
   getInternalStreamType() {
-    return InMemoryDuplex;
+    return MultiplexReadable;
   }
   resetInternalStreams(): void {
-    this.streams = new Map();
+    throw new Error("this stream shouldn't be reseted");
   }
-  setStream(key: string, stream: Duplex): void {
-    this.streams.set(key, stream);
+  setStream(_key: string, stream: Duplex): void {
+    this.stream = stream;
   }
-  getStream(key: string): Duplex | undefined {
-    return this.streams.get(key);
+  getStream(_key: string): Duplex | undefined {
+    return this.stream;
   }
   public async once(
     {
@@ -40,14 +40,9 @@ class InMemoryEmitter implements TransportEmitter {
     },
     listener: (...args: any[]) => void
   ): Promise<void> {
-    let stream = this.streams.get(event);
-    if (!stream) {
-      stream = new InMemoryDuplex(this.queueSize);
-      this.streams.set(event, stream);
-    }
+    const stream = this.stream;
     const innerCanceler = memo(true);
     let result = stream.read(1);
-    console.log(result);
     if (!result) {
       result = await Promise.race([
         (async function (passedCanceler, outterCanceler) {
@@ -79,11 +74,7 @@ class InMemoryEmitter implements TransportEmitter {
     { timeout, event }: { timeout?: number; event: string | symbol },
     ...args: any[]
   ): Promise<boolean> {
-    let stream = this.streams.get(event);
-    if (!stream) {
-      stream = new InMemoryDuplex(this.queueSize);
-      this.streams.set(event, stream);
-    }
+    let stream = this.stream;
     const ok = stream.write(args);
     if (!ok) {
       return await Promise.race([
@@ -102,4 +93,4 @@ class InMemoryEmitter implements TransportEmitter {
   }
 }
 
-export { InMemoryEmitter };
+export { CombineEmitter };

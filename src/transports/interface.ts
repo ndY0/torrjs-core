@@ -1,5 +1,6 @@
 import EventEmitter from "events";
-import { Duplex } from "stream";
+import { Duplex, Stream } from "stream";
+import { Class } from "../utils/types";
 
 interface TransportEmitter {
   once(
@@ -14,6 +15,10 @@ interface TransportEmitter {
     emitInfo: { timeout?: number; event: string | symbol },
     ...args: any[]
   ): Promise<boolean>;
+  resetInternalStreams(): void;
+  setStream(key: string, stream: Duplex): void;
+  getStream(key: string): Duplex | undefined;
+  getInternalStreamType(): Class<any>;
 }
 
 export { TransportEmitter };

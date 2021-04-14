@@ -1,16 +1,24 @@
 import { v1 } from "uuid";
 import { call, cast, take, takeAny } from "../effects";
 import { ServerEvent, ServerReply, ReplyTypes } from "../events/types";
-import { keyForIdSymbol, keyForMapSymbol } from "../utils/symbols";
+import {
+  keyForIdSymbol,
+  keyForMapSymbol,
+  keyForCombinedSelfReadable,
+} from "../utils/symbols";
 import { ChildSpec, ChildRestartStrategy } from "../supervision/types";
 import { tail } from "../utils";
 import { TransportEmitter } from "../transports/interface";
 import EventEmitter from "events";
+import { PassThrough } from "stream";
+import { combineStreams } from "../streams/combine-streams";
+import { CombineEmitter } from "../transports/combine-emitter";
 
 abstract class GenServer {
   [keyForIdSymbol]: string = v1();
   static eventEmitter: TransportEmitter;
   static externalEventEmitters: Map<string, TransportEmitter>;
+  private [keyForCombinedSelfReadable]: CombineEmitter;
   [key: string]: (...args: any[]) => AsyncGenerator;
   static [keyForMapSymbol]: Map<string, string> = new Map<string, string>();
   protected abstract init(...args: unknown[]): AsyncGenerator;
@@ -20,6 +28,19 @@ abstract class GenServer {
     canceler: AsyncGenerator<[boolean, EventEmitter], never, boolean>,
     cancelerPromise: Promise<boolean>
   ) {
+    [
+      context.eventEmitter,
+      ...context.externalEventEmitters.values(),
+    ].forEach((emitter) => emitter.resetInternalStreams());
+    const combinableStreams = [
+      context.eventEmitter,
+      ...context.externalEventEmitters.values(),
+    ].map((emitter) => {
+      const stream = new (emitter.getInternalStreamType())();
+      emitter.setStream(this[keyForIdSymbol], stream);
+      return stream;
+    });
+    this[keyForCombinedSelfReadable] = new CombineEmitter(combinableStreams);
     await tail(
       (state: any) => this.run(canceler, cancelerPromise, context, state),
       canceler,
@@ -38,12 +59,11 @@ abstract class GenServer {
     context: U,
     state: any
   ) {
-    const event = yield* takeAny<ServerEvent>(
+    const event = yield* take<ServerEvent>(
       this[keyForIdSymbol],
-      [context.eventEmitter, ...context.externalEventEmitters.values()],
+      this[keyForCombinedSelfReadable],
       cancelerPromise
     );
-    console.log(event);
     if (event) {
       const funcName = context[keyForMapSymbol].get(event.action);
       let result: ServerReply;
