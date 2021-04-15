@@ -388,12 +388,10 @@ describe("GenServer", () => {
           await TestDecoratedExternalGenServer.testCastExternal(serverId, {
             test: "test",
           }).next();
-          // await delay(200);
           const res1 = await TestDecoratedExternalGenServer.testCall(
             serverId,
             testDecoratedClient
           ).next();
-          // await delay(200);
           const res2 = await TestDecoratedExternalGenServer.testCallExternal(
             serverId,
             testDecoratedClient
