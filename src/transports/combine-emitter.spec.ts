@@ -1,5 +1,4 @@
 import "reflect-metadata";
-import { InMemoryEmitter } from "./in-memory-emitter";
 import { InMemoryDuplex } from "../streams/in-memory-duplex";
 import { delay, memo, putMemoValue } from "../utils";
 import { CombineEmitter } from "./combine-emitter";
@@ -21,12 +20,12 @@ describe("CombineEmitter", () => {
       const stream2 = new InMemoryDuplex(10);
       const emitter = new CombineEmitter([stream1, stream2]);
       const canceler = memo(true);
-      await emitter.emit({ event: "test" }, {});
+      stream1.write([{ event: "test" }]);
       const stream = Reflect.getOwnPropertyDescriptor(emitter, "stream");
       const testStream = stream?.value;
       const spyRead = jest.spyOn(testStream, "read");
       emitter.once({ event: "test", canceler }, (data) => {
-        expect(data).toEqual({});
+        expect(data).toEqual({ event: "test" });
         expect(spyRead).toHaveBeenCalledTimes(1);
       });
     });
@@ -36,13 +35,13 @@ describe("CombineEmitter", () => {
       const emitter = new CombineEmitter([stream1, stream2]);
       const canceler = memo(true);
       emitter.once({ event: "test", canceler }, (data) => {
-        expect(data).toEqual({});
+        expect(data).toEqual({ event: "test" });
         expect(spyRead).toHaveBeenCalledTimes(2);
       });
       const stream = Reflect.getOwnPropertyDescriptor(emitter, "stream");
       const testStream = stream?.value;
       const spyRead = jest.spyOn(testStream, "read");
-      await emitter.emit({ event: "test" }, {});
+      stream2.write([{ event: "test" }]);
       // avoid immediat return and let handler execute properly
       await new Promise<void>((resolve) => setTimeout(() => resolve(), 1000));
     });
@@ -63,7 +62,7 @@ describe("CombineEmitter", () => {
       const res = await emitter.once({ event: "test", canceler }, (data) => {});
       const testStream = stream?.value;
       const spyRead = jest.spyOn(testStream, "read");
-      await emitter.emit({ event: "test" }, {});
+      stream1.write([{ event: "test" }]);
       await new Promise<void>((resolve) =>
         setTimeout(() => {
           expect(spyRead).toHaveBeenCalledTimes(1);
@@ -84,7 +83,7 @@ describe("CombineEmitter", () => {
           const testStream = stream?.value;
           const spyRead = jest.spyOn(testStream, "read");
           await putMemoValue(canceler, false);
-          await emitter.emit({ event: "test" }, {});
+          stream2.write([{ event: "test" }]);
           await new Promise<void>((resolve) =>
             setTimeout(() => {
               expect(spyRead).toHaveBeenCalledTimes(1);
@@ -97,82 +96,15 @@ describe("CombineEmitter", () => {
     });
   });
   describe("emit", () => {
-    it("should write to inner stream and return immediately if operation successfull", async () => {
+    it("should throw an error if tryong to emit from it", async () => {
       const stream1 = new InMemoryDuplex(10);
       const stream2 = new InMemoryDuplex(10);
       const emitter = new CombineEmitter([stream1, stream2]);
-      const canceler = memo(true);
-      await emitter.once({ event: "test", canceler }, () => {});
-      const stream = Reflect.getOwnPropertyDescriptor(emitter, "stream");
-      const testStream = stream?.value;
-      const spyWrite = jest.spyOn(testStream, "write");
-      await emitter.emit({ event: "test" });
-      expect(spyWrite).toHaveBeenCalledTimes(1);
-    });
-    it("should write to inner stream and wait until inner stream drains before rewritting", async () => {
-      // testing with a queue of size one introduce error, since the queue size account for readable and writable stream sizes
-      const stream1 = new InMemoryDuplex(2);
-      const stream2 = new InMemoryDuplex(2);
-      const emitter = new CombineEmitter([stream1, stream2]);
-      const canceler = memo(true);
-      await emitter.emit({ event: "test" });
-      await emitter.emit({ event: "test" });
-      const stream = Reflect.getOwnPropertyDescriptor(emitter, "stream");
-      const testStream = stream?.value;
-      const spyWrite = jest.spyOn(testStream, "write");
-      await Promise.all([
-        emitter.emit({ event: "test" }),
-        (async () => {
-          await delay(200);
-          await emitter.once({ event: "test", canceler }, () => {});
-          await emitter.once({ event: "test", canceler }, () => {});
-        })(),
-      ]);
-      expect(spyWrite).toHaveBeenCalledTimes(2);
-    });
-    it("should try to write to inner stream and return if default 5_000 timeout is reached, yet writting if possible", async () => {
-      const stream1 = new InMemoryDuplex(10);
-      const stream2 = new InMemoryDuplex(10);
-      const emitter = new CombineEmitter([stream1, stream2]);
-      const canceler = memo(true);
-      await emitter.emit({ event: "test" });
-      await emitter.emit({ event: "test" });
-      const stream = Reflect.getOwnPropertyDescriptor(emitter, "stream");
-      const testStream = stream?.value;
-      const spyWrite = jest.spyOn(testStream, "write");
-      await Promise.all([
-        emitter.emit({ event: "test" }),
-        (async () => {
-          await delay(200);
-          await emitter.once({ event: "test", canceler }, () => {});
-        })(),
-      ]);
-      expect(spyWrite).toHaveBeenCalledTimes(1);
-      await emitter.once({ event: "test", canceler }, () => {});
-      await delay(200);
-      expect(spyWrite).toHaveBeenCalledTimes(2);
-    });
-    it("should try to write to inner stream and return if provided timeout is reached, yet writting if possible", async () => {
-      const stream1 = new InMemoryDuplex(10);
-      const stream2 = new InMemoryDuplex(10);
-      const emitter = new CombineEmitter([stream1, stream2]);
-      const canceler = memo(true);
-      await emitter.emit({ event: "test" });
-      await emitter.emit({ event: "test" });
-      const stream = Reflect.getOwnPropertyDescriptor(emitter, "stream");
-      const testStream = stream?.value;
-      const spyWrite = jest.spyOn(testStream, "write");
-      await Promise.all([
-        emitter.emit({ event: "test", timeout: 200 }),
-        (async () => {
-          await delay(200);
-          await emitter.once({ event: "test", canceler }, () => {});
-        })(),
-      ]);
-      expect(spyWrite).toHaveBeenCalledTimes(1);
-      await emitter.once({ event: "test", canceler }, () => {});
-      await delay(200);
-      expect(spyWrite).toHaveBeenCalledTimes(2);
+      await emitter.emit({}).catch((e: Error) => {
+        expect(e).toEqual(
+          new Error("this merged readable shouldn't be emitting")
+        );
+      });
     });
   });
   describe("getInternalStreamType", () => {

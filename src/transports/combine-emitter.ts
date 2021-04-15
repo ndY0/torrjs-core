@@ -14,12 +14,7 @@ import { combineStreams } from "../streams/combine-streams";
 class CombineEmitter implements TransportEmitter {
   private stream: Duplex;
   constructor(streams: Duplex[]) {
-    try {
-      this.stream = combineStreams(streams);
-    } catch (e) {
-      console.log(e);
-      this.stream = combineStreams(streams);
-    }
+    this.stream = combineStreams(streams);
   }
   getInternalStreamType() {
     return PassThrough;
@@ -75,26 +70,8 @@ class CombineEmitter implements TransportEmitter {
       listener();
     }
   }
-  public async emit(
-    { timeout, event }: { timeout?: number; event: string | symbol },
-    ...args: any[]
-  ): Promise<boolean> {
-    let stream = this.stream;
-    const ok = stream.write(args);
-    if (!ok) {
-      return await Promise.race([
-        (async () => {
-          await promisify(cure(stream.once, stream)("drain"), stream);
-          (<Duplex>stream).write(args);
-          return true;
-        })(),
-        (async () => {
-          await delay(timeout || 5_000);
-          return false;
-        })(),
-      ]);
-    }
-    return true;
+  public async emit(..._args: any[]): Promise<boolean> {
+    throw new Error("this merged readable shouldn't be emitting");
   }
 }
 

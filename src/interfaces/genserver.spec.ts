@@ -381,7 +381,6 @@ describe("GenServer", () => {
       const res = await Promise.all([
         startGenerator.next(),
         (async () => {
-          // await delay(200);
           await TestDecoratedExternalGenServer.testCast(serverId, {
             test: "test",
           }).next();
