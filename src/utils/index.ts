@@ -107,7 +107,9 @@ async function loopWorker(
   canceler: AsyncGenerator<[boolean, EventEmitter], never, boolean>
 ): Promise<void> {
   try {
+    console.log(await getMemoValue(canceler));
     if (await getMemoValue(canceler)) {
+      console.log("been there");
       await factory();
       if (spec.restart === ChildRestartStrategy.PERMANENT) {
         return loopWorker(factory, spec, canceler);

@@ -34,7 +34,7 @@ class InMemoryEmitter implements TransportEmitter {
       event,
       canceler,
     }: {
-      timeout?: number;
+      timeout?: number | Promise<boolean>;
       event: string | symbol;
       canceler: AsyncGenerator<[boolean, EventEmitter], never, boolean>;
     },
@@ -62,9 +62,12 @@ class InMemoryEmitter implements TransportEmitter {
           }
         })(innerCanceler, canceler),
         (async function (passedCanceler) {
-          await delay(timeout || 10_000);
+          if (typeof timeout === "number" || timeout === undefined) {
+            await delay(timeout || 10_000);
+          } else {
+            await timeout;
+          }
           await putMemoValue(passedCanceler, false);
-          const value = await getMemoValue(passedCanceler);
         })(innerCanceler),
       ]);
     }

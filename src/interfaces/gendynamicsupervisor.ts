@@ -8,17 +8,16 @@ import EventEmitter from "events";
 import { GenSupervisor } from "./gensupervisor";
 import { take } from "../effects";
 import { supervise } from "../supervision";
-import { tail } from "../utils";
+import { tail, getMemoValue } from "../utils";
+import { keyForCombinedSelfReadable } from "../utils/symbols";
+import { ServerEvent } from "../events/types";
 
 abstract class GenDynamicSupervisor extends GenSupervisor {
   protected async *children() {
     return [];
   }
   protected async *init(): AsyncGenerator {
-    return {
-      strategy: RestartStrategy.ONE_FOR_ONE,
-      childSpecs: [],
-    };
+    return [];
   }
   protected async *run<
     U extends typeof GenServer,
@@ -50,21 +49,34 @@ abstract class GenDynamicSupervisor extends GenSupervisor {
     },
     any
   > {
-    const { targetChild, spec } = yield* take<{
-      spec: ChildSpec;
-      targetChild: V;
-    }>("startChild", context.eventEmitter, cancelerPromise);
-    const child: [
-      typeof GenServer & (new () => GenServer),
-      GenServer,
-      ChildSpec
-    ] = [targetChild, new (<any>targetChild)(), spec];
-    childSpecs.push(child);
-    tail(() => supervise([child], strategy, cancelerPromise), canceler, null);
-    return {
-      strategy,
-      childSpecs,
-    };
+    const res = yield* take<
+      ServerEvent<{
+        spec: ChildSpec;
+        targetChild: V;
+      }>
+    >(context.name, this[keyForCombinedSelfReadable], cancelerPromise);
+    if (await getMemoValue(canceler)) {
+      const child: [
+        typeof GenServer & (new () => GenServer),
+        GenServer,
+        ChildSpec
+      ] = [
+        res.data[0].targetChild,
+        new (<any>res.data[0].targetChild)(),
+        res.data[0].spec,
+      ];
+      childSpecs.push(child);
+      tail(() => supervise([child], strategy, cancelerPromise), canceler, null);
+      return {
+        strategy,
+        childSpecs,
+      };
+    } else {
+      return {
+        strategy,
+        childSpecs: [],
+      };
+    }
   }
   public async *childSpec(): AsyncGenerator<void, ChildSpec, unknown> {
     return {
@@ -75,9 +87,9 @@ abstract class GenDynamicSupervisor extends GenSupervisor {
   public static async *startChild<
     U extends typeof GenDynamicSupervisor,
     V extends typeof GenServer & (new () => GenServer)
-  >(targetSupervisor: U, targetChild: V, spec: ChildSpec) {
+  >(targetSupervisor: U, targetChild: V, spec: ChildSpec, transport?: string) {
     yield* GenServer.cast<U>(
-      [targetSupervisor, targetSupervisor.name],
+      [targetSupervisor, targetSupervisor.name, transport],
       "startChild",
       { spec, targetChild }
     );

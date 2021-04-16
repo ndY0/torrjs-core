@@ -62,7 +62,9 @@ async function* supervise(
       strategy,
     };
   } else if (strategy === RestartStrategy.ONE_FOR_ONE) {
-    upperCancelerPromise.then((value: boolean) => canceler.next(value));
+    upperCancelerPromise.then((_value: boolean) =>
+      putMemoValue(canceler, false)
+    );
     await Promise.all(
       children.map(([Child, child, spec]) =>
         loopWorker(

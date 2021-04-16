@@ -35,17 +35,10 @@ async function* take<Treturn>(
   timeout: number | Promise<any> = 5_000
 ): AsyncGenerator<void, Treturn, any> {
   const canceler = memo(true);
-  return await Promise.race([
-    promisify<Treturn>(
-      cure(emitter.once, emitter)({ event, canceler }),
-      emitter
-    ),
-    typeof timeout === "number"
-      ? new Promise<void>((resolve) => {
-          setTimeout(() => (putMemoValue(canceler, false), resolve()), timeout);
-        })
-      : timeout.then((data) => (putMemoValue(canceler, false), data)),
-  ]);
+  return await promisify<Treturn>(
+    cure(emitter.once, emitter)({ event, canceler, timeout }),
+    emitter
+  );
 }
 async function* takeAny<Treturn>(
   event: string,

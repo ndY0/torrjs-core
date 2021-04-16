@@ -34,7 +34,7 @@ class CombineEmitter implements TransportEmitter {
       event,
       canceler,
     }: {
-      timeout?: number;
+      timeout?: number | Promise<boolean>;
       event: string | symbol;
       canceler: AsyncGenerator<[boolean, EventEmitter], never, boolean>;
     },
@@ -58,9 +58,10 @@ class CombineEmitter implements TransportEmitter {
           }
         })(innerCanceler, canceler),
         (async function (passedCanceler) {
-          await delay(timeout || 10_000);
+          typeof timeout === "number" || timeout === undefined
+            ? await delay(timeout || 10_000)
+            : await timeout;
           await putMemoValue(passedCanceler, false);
-          const value = await getMemoValue(passedCanceler);
         })(innerCanceler),
       ]);
     }

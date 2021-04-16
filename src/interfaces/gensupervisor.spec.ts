@@ -7,82 +7,9 @@ import {
   RestartStrategy,
 } from "../supervision/types";
 import EventEmitter from "events";
-import {
-  delay,
-  getMemoValue,
-  memo,
-  getMemoPromise,
-  putMemoValue,
-} from "../utils";
-
-class DelayFailurePermanentServer extends GenServer {
-  protected async *init(
-    ...args: unknown[]
-  ): AsyncGenerator<unknown, any, unknown> {
-    return null;
-  }
-  public async *start<U extends typeof GenServer>(
-    startArgs: any,
-    context: U,
-    canceler: AsyncGenerator<[boolean, EventEmitter], never, boolean>,
-    cancelerPromise: Promise<boolean>
-  ) {
-    await delay(200);
-    throw new Error("");
-  }
-  public async *childSpec(): AsyncGenerator<void, ChildSpec, unknown> {
-    return {
-      restart: ChildRestartStrategy.PERMANENT,
-      shutdown: 10_000,
-    };
-  }
-}
-
-class DelayFailureTransientServer extends GenServer {
-  protected async *init(
-    ...args: unknown[]
-  ): AsyncGenerator<unknown, any, unknown> {
-    return null;
-  }
-  public async *start<U extends typeof GenServer>(
-    startArgs: any,
-    context: U,
-    canceler: AsyncGenerator<[boolean, EventEmitter], never, boolean>,
-    cancelerPromise: Promise<boolean>
-  ) {
-    await delay(200);
-    throw new Error("");
-  }
-  public async *childSpec(): AsyncGenerator<void, ChildSpec, unknown> {
-    return {
-      restart: ChildRestartStrategy.TRANSIENT,
-      shutdown: 10_000,
-    };
-  }
-}
-
-class DelayFailureTemporaryServer extends GenServer {
-  protected async *init(
-    ...args: unknown[]
-  ): AsyncGenerator<unknown, any, unknown> {
-    return null;
-  }
-  public async *start<U extends typeof GenServer>(
-    startArgs: any,
-    context: U,
-    canceler: AsyncGenerator<[boolean, EventEmitter], never, boolean>,
-    cancelerPromise: Promise<boolean>
-  ) {
-    await delay(200);
-    throw new Error("");
-  }
-  public async *childSpec(): AsyncGenerator<void, ChildSpec, unknown> {
-    return {
-      restart: ChildRestartStrategy.TEMPORARY,
-      shutdown: 10_000,
-    };
-  }
-}
+import { delay, memo, getMemoPromise, putMemoValue } from "../utils";
+import { Server } from "../annotations/server";
+import { InMemoryEmitter } from "../transports/in-memory-emitter";
 
 class DelayNormalPermanentServer extends GenServer {
   protected async *init(
@@ -97,52 +24,6 @@ class DelayNormalPermanentServer extends GenServer {
     cancelerPromise: Promise<boolean>
   ) {
     await delay(200);
-  }
-  public async *childSpec(): AsyncGenerator<void, ChildSpec, unknown> {
-    return {
-      restart: ChildRestartStrategy.PERMANENT,
-      shutdown: 10_000,
-    };
-  }
-}
-
-class DelayNormalTransientServer extends GenServer {
-  protected async *init(
-    ...args: unknown[]
-  ): AsyncGenerator<unknown, any, unknown> {
-    return null;
-  }
-  public async *start<U extends typeof GenServer>(
-    startArgs: any,
-    context: U,
-    canceler: AsyncGenerator<[boolean, EventEmitter], never, boolean>,
-    cancelerPromise: Promise<boolean>
-  ) {
-    await delay(200);
-  }
-  public async *childSpec(): AsyncGenerator<void, ChildSpec, unknown> {
-    return {
-      restart: ChildRestartStrategy.TRANSIENT,
-      shutdown: 10_000,
-    };
-  }
-}
-
-class PermanentCancellableServer extends GenServer {
-  protected async *init(
-    ...args: unknown[]
-  ): AsyncGenerator<unknown, any, unknown> {
-    return null;
-  }
-  public async *start<U extends typeof GenServer>(
-    startArgs: any,
-    context: U,
-    canceler: AsyncGenerator<[boolean, EventEmitter], never, boolean>,
-    cancelerPromise: Promise<boolean>
-  ) {
-    while (await getMemoValue(canceler)) {
-      await delay(300);
-    }
   }
   public async *childSpec(): AsyncGenerator<void, ChildSpec, unknown> {
     return {
@@ -174,12 +55,14 @@ class DelayNormalTemporaryServer extends GenServer {
   }
 }
 
+@Server(new InMemoryEmitter(10), { test: new InMemoryEmitter(10) })
 class TestPermanentSupervisor extends GenSupervisor {
   protected async *children() {
     return [DelayNormalPermanentServer, DelayNormalPermanentServer];
   }
 }
 
+@Server(new InMemoryEmitter(10), { test: new InMemoryEmitter(10) })
 class TestTemporarySupervisor extends GenSupervisor {
   protected async *children() {
     return [DelayNormalTemporaryServer, DelayNormalTemporaryServer];

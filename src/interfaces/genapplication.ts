@@ -2,7 +2,6 @@ import {
   ChildSpec,
   ApplicationSpec,
   RestartStrategy,
-  ChildRestartStrategy,
 } from "../supervision/types";
 import { GenServer } from "./genserver";
 import {
@@ -11,6 +10,7 @@ import {
   memo,
   getMemoPromise,
   loopWorker,
+  putMemoValue,
 } from "../utils";
 import EventEmitter from "events";
 import { supervise } from "../supervision";
@@ -23,27 +23,22 @@ class GenApplication<T extends typeof GenServer & (new () => GenServer)> {
     this.cancelerPromise = getMemoPromise(this.canceler);
   }
   public async start() {
-    await loopWorker(
-      async () => {
-        const childSpecs = await promisifyAsyncGenerator(this.init());
-        await tail(
-          (specs) => this.run(this.canceler, this.cancelerPromise, specs),
-          this.canceler,
-          {
-            childSpecs,
-            strategy: this.spec.childStrategy,
-          }
-        );
+    const childSpecs = await promisifyAsyncGenerator(this.init());
+    await tail(
+      (specs) => this.run(this.canceler, this.cancelerPromise, specs),
+      this.canceler,
+      {
+        childSpecs,
+        strategy: this.spec.childStrategy,
       },
-      this.spec.strategy,
-      this.canceler
+      (specs) => (console.log(specs), specs.childSpecs.length === 0)
     );
   }
   public async stop() {
-    await this.canceler.next(false);
-    await new Promise<void>((resolve) =>
-      setTimeout(() => resolve(), this.spec.strategy.shutdown)
-    );
+    await putMemoValue(this.canceler, false);
+    // await new Promise<void>((resolve) =>
+    //   setTimeout(() => resolve(), this.spec.strategy.shutdown || 5_000)
+    // );
   }
   private async *init(): AsyncGenerator {
     const children: [
@@ -56,7 +51,7 @@ class GenApplication<T extends typeof GenServer & (new () => GenServer)> {
     }
     return childSpecs;
   }
-  private async *run<U extends typeof GenServer>(
+  private async *run(
     _canceler: AsyncGenerator<[boolean, EventEmitter], never, boolean>,
     cancelerPromise: Promise<boolean>,
     {
@@ -74,6 +69,10 @@ class GenApplication<T extends typeof GenServer & (new () => GenServer)> {
     },
     undefined
   > {
+    console.log({
+      childSpecs,
+      strategy,
+    });
     return yield* supervise(childSpecs, strategy, cancelerPromise);
   }
 }

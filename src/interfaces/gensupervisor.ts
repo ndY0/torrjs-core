@@ -7,6 +7,8 @@ import { GenServer } from "./genserver";
 import { tail } from "../utils";
 import { supervise } from "../supervision";
 import EventEmitter from "events";
+import { keyForCombinedSelfReadable } from "../utils/symbols";
+import { CombineEmitter } from "../transports/combine-emitter";
 
 abstract class GenSupervisor extends GenServer {
   protected abstract children(): AsyncGenerator<
@@ -20,6 +22,19 @@ abstract class GenSupervisor extends GenServer {
     canceler: AsyncGenerator<[boolean, EventEmitter], never, boolean>,
     cancelerPromise: Promise<boolean>
   ) {
+    [
+      context.eventEmitter,
+      ...context.externalEventEmitters.values(),
+    ].forEach((emitter) => emitter.resetInternalStreams());
+    const combinableStreams = [
+      context.eventEmitter,
+      ...context.externalEventEmitters.values(),
+    ].map((emitter) => {
+      const stream = new (emitter.getInternalStreamType())();
+      emitter.setStream(context.name, stream);
+      return stream;
+    });
+    this[keyForCombinedSelfReadable] = new CombineEmitter(combinableStreams);
     const childSpecs = yield* this.init();
     await tail(
       (specs) => this.run(canceler, cancelerPromise, context, specs),

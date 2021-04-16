@@ -44,7 +44,8 @@ abstract class GenServer {
     await tail(
       (state: any) => this.run(canceler, cancelerPromise, context, state),
       canceler,
-      yield* this.init(startArgs)
+      yield* this.init(startArgs),
+      (state) => state === undefined
     );
   }
   public async *childSpec(): AsyncGenerator<void, ChildSpec, unknown> {
@@ -80,7 +81,7 @@ abstract class GenServer {
       }
       return result.newState;
     }
-    return state;
+    return undefined;
   }
   static API: { [key: string]: string } = {};
   static EXTERNAL_EMITTERS_KEYS: Record<string, string> = {};

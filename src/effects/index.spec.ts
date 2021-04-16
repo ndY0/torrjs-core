@@ -67,17 +67,14 @@ describe("take", () => {
           emitter.emit({ event: "test" }, { value: "test" });
           resolve();
         }, 500);
-      }).catch(console.log),
+      }),
     ]);
     expect(computationResult[0].value).toEqual({ value: "test" });
   });
   it(`should await for an event to be triggerred by an event emitter,
   and return undefined if reaching provided promise timeout, triggering the cancel memo in the process`, async () => {
-    const emitter = new InMemoryEmitter(1);
-    const onceFunctionDescriptor = Reflect.getOwnPropertyDescriptor(
-      emitter,
-      "once"
-    );
+    const emitter = new InMemoryEmitter(10);
+    const onceFunctionDescriptor = Reflect.get(emitter, "once");
     let cancelerRef: AsyncGenerator<[boolean, EventEmitter], never, boolean>;
     let cancelerPromise: Promise<boolean>;
     const proxy = (
@@ -86,22 +83,19 @@ describe("take", () => {
         event,
         canceler,
       }: {
-        timeout?: number;
+        timeout?: number | Promise<boolean>;
         event: string | symbol;
         canceler: AsyncGenerator<[boolean, EventEmitter], never, boolean>;
       },
       listener: (...args: any[]) => void
     ) => {
       cancelerRef = canceler;
-      return onceFunctionDescriptor?.value(
+      return onceFunctionDescriptor.bind(emitter)(
         { timeout, event, canceler },
         listener
       );
     };
-    Reflect.defineProperty(emitter, "once", {
-      ...onceFunctionDescriptor,
-      value: proxy,
-    });
+    Reflect.set(emitter, "once", proxy);
     const timeout = new Promise<void>((resolve) =>
       setTimeout(() => resolve(), 500)
     );
@@ -120,11 +114,8 @@ describe("take", () => {
   });
   it(`should await for an event to be triggerred by an event emitter,
   and return undefined if reaching default 5_000ms timeout, triggering the cancel memo in the process`, async () => {
-    const emitter = new InMemoryEmitter(1);
-    const onceFunctionDescriptor = Reflect.getOwnPropertyDescriptor(
-      emitter,
-      "once"
-    );
+    const emitter = new InMemoryEmitter(10);
+    const onceFunctionDescriptor = Reflect.get(emitter, "once");
     let cancelerRef: AsyncGenerator<[boolean, EventEmitter], never, boolean>;
     let cancelerPromise: Promise<boolean>;
     const proxy = (
@@ -133,22 +124,19 @@ describe("take", () => {
         event,
         canceler,
       }: {
-        timeout?: number;
+        timeout?: number | Promise<boolean>;
         event: string | symbol;
         canceler: AsyncGenerator<[boolean, EventEmitter], never, boolean>;
       },
       listener: (...args: any[]) => void
     ) => {
       cancelerRef = canceler;
-      return onceFunctionDescriptor?.value(
+      return onceFunctionDescriptor.bind(emitter)(
         { timeout, event, canceler },
         listener
       );
     };
-    Reflect.defineProperty(emitter, "once", {
-      ...onceFunctionDescriptor,
-      value: proxy,
-    });
+    Reflect.set(emitter, "once", proxy);
     const computationResult = await Promise.all([
       take("test", emitter).next(),
       new Promise<void>((resolve) => {
@@ -158,7 +146,7 @@ describe("take", () => {
           emitter.emit({ event: "test" }, { value: "test" });
           resolve();
         }, 6000);
-      }).catch(console.log),
+      }),
     ]);
     expect(computationResult[0].value).toEqual(undefined);
   });

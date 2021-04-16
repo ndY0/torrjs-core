@@ -17,7 +17,7 @@ type ChildSpec = {
 };
 
 type ApplicationSpec<T extends typeof GenServer & (new () => GenServer)> = {
-  strategy: ChildSpec;
+  // strategy: ChildSpec;
   childStrategy: RestartStrategy;
   supervise: T[];
 };

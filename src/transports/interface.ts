@@ -5,7 +5,7 @@ import { Class } from "../utils/types";
 interface TransportEmitter {
   once(
     onceInfo: {
-      timeout?: number;
+      timeout?: number | Promise<any>;
       event: string | symbol;
       canceler: AsyncGenerator<[boolean, EventEmitter], never, boolean>;
     },
