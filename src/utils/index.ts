@@ -5,13 +5,14 @@ async function promisify<Treturn>(
   fn: (callback: (...result: [Treturn]) => void) => void,
   context?: any
 ): Promise<Treturn> {
-  return new Promise(
-    (resolve: (res: Treturn) => void, reject: (err: Error) => void) => {
-      fn.bind(context)((...result: [Treturn]) => {
-        resolve(...result);
-      });
-    }
-  );
+  return new Promise((resolve: (res: Treturn) => void) => {
+    //this is needed in order to keep event loop from exiting (no execution is scheduled at this point otherwise)
+    const timeout = setInterval(() => {}, Math.pow(2, 32) / 2 - 1);
+    fn.bind(context)((...result: [Treturn]) => {
+      clearInterval(timeout);
+      resolve(...result);
+    });
+  });
 }
 
 function cure<Tfirst, Trest, Treturn>(
