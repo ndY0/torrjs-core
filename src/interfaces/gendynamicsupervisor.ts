@@ -66,7 +66,11 @@ abstract class GenDynamicSupervisor extends GenSupervisor {
         res.data[0].spec,
       ];
       childSpecs.push(child);
-      tail(() => supervise([child], strategy, cancelerPromise), canceler, null);
+      tail(
+        () => supervise([child], strategy, canceler, cancelerPromise),
+        canceler,
+        null
+      );
       return {
         strategy,
         childSpecs,

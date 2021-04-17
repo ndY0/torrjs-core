@@ -17,7 +17,7 @@ abstract class GenSupervisor extends GenServer {
     unknown
   >;
   public async *start<U extends typeof GenServer>(
-    startArgs: RestartStrategy,
+    startArgs: [RestartStrategy],
     context: U,
     canceler: AsyncGenerator<[boolean, EventEmitter], never, boolean>,
     cancelerPromise: Promise<boolean>
@@ -41,7 +41,7 @@ abstract class GenSupervisor extends GenServer {
       canceler,
       {
         childSpecs,
-        strategy: startArgs,
+        strategy: startArgs[0],
       },
       (specs) => specs.childSpecs.length === 0
     );
@@ -58,7 +58,7 @@ abstract class GenSupervisor extends GenServer {
     return childSpecs;
   }
   protected async *run<U extends typeof GenServer>(
-    _canceler: AsyncGenerator<[boolean, EventEmitter], never, boolean>,
+    canceler: AsyncGenerator<[boolean, EventEmitter], never, boolean>,
     cancelerPromise: Promise<boolean>,
     _context: U,
     {
@@ -76,10 +76,11 @@ abstract class GenSupervisor extends GenServer {
     },
     undefined
   > {
-    return yield* supervise(childSpecs, strategy, cancelerPromise);
+    return yield* supervise(childSpecs, strategy, canceler, cancelerPromise);
   }
   public async *childSpec(): AsyncGenerator<void, ChildSpec, unknown> {
     return {
+      startArgs: [RestartStrategy.ONE_FOR_ONE],
       restart: ChildRestartStrategy.PERMANENT,
       shutdown: Infinity,
     };

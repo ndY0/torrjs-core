@@ -6,11 +6,14 @@ import {
   promisifyAsyncGenerator,
   loopWorker,
   putMemoValue,
+  getMemoValue,
 } from "../utils";
+import EventEmitter from "events";
 
 async function* supervise(
   children: [typeof GenServer, GenServer, ChildSpec][],
   strategy: RestartStrategy,
+  upperCanceler: AsyncGenerator<[boolean, EventEmitter], never, boolean>,
   upperCancelerPromise: Promise<boolean>
 ): AsyncGenerator<
   any,
@@ -27,25 +30,32 @@ async function* supervise(
   const cancelerPromise = getMemoPromise(canceler);
   if (strategy === RestartStrategy.ONE_FOR_ALL) {
     const mappedChildren = children.map(([Child, child, spec]) =>
-      promisifyAsyncGenerator(
-        child.start(
-          spec.startArgs,
-          Child,
-          canceler,
-          Promise.race([upperCancelerPromise, cancelerPromise])
-        )
-      )
-        .then(() =>
-          spec.restart === ChildRestartStrategy.PERMANENT
-            ? [Child, child, spec]
-            : undefined
-        )
-        .catch(() =>
-          spec.restart === ChildRestartStrategy.TRANSIENT ||
-          spec.restart === ChildRestartStrategy.PERMANENT
-            ? [Child, child, spec]
-            : undefined
-        )
+      (async () => {
+        try {
+          await promisifyAsyncGenerator(
+            child.start(
+              spec.startArgs || [],
+              Child,
+              canceler,
+              Promise.race([upperCancelerPromise, cancelerPromise])
+            )
+          );
+          if (await getMemoValue(upperCanceler)) {
+            return spec.restart === ChildRestartStrategy.PERMANENT
+              ? [Child, child, spec]
+              : undefined;
+          }
+          return undefined;
+        } catch (e) {
+          if (await getMemoValue(upperCanceler)) {
+            return spec.restart === ChildRestartStrategy.TRANSIENT ||
+              spec.restart === ChildRestartStrategy.PERMANENT
+              ? [Child, child, spec]
+              : undefined;
+          }
+          return undefined;
+        }
+      })()
     );
     await Promise.race(mappedChildren).then(
       async () => await putMemoValue(canceler, false)
@@ -71,7 +81,7 @@ async function* supervise(
           () =>
             promisifyAsyncGenerator(
               child.start(
-                spec.startArgs,
+                spec.startArgs || [],
                 Child,
                 canceler,
                 Promise.race([upperCancelerPromise, cancelerPromise])

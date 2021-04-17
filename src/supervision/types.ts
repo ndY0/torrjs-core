@@ -11,13 +11,12 @@ enum ChildRestartStrategy {
 }
 
 type ChildSpec = {
-  startArgs?: Record<string | number | symbol, any>;
+  startArgs?: any[];
   restart: ChildRestartStrategy;
   shutdown?: number;
 };
 
 type ApplicationSpec<T extends typeof GenServer & (new () => GenServer)> = {
-  // strategy: ChildSpec;
   childStrategy: RestartStrategy;
   supervise: T[];
 };

@@ -65,7 +65,7 @@ describe("GenDynamicSupervisor", () => {
       await Promise.all([
         supervisor
           .start(
-            RestartStrategy.ONE_FOR_ONE,
+            [RestartStrategy.ONE_FOR_ONE],
             TestDynamicSupervisor,
             canceler,
             cancelerPromise
@@ -90,7 +90,7 @@ describe("GenDynamicSupervisor", () => {
       await Promise.all([
         supervisor
           .start(
-            RestartStrategy.ONE_FOR_ONE,
+            [RestartStrategy.ONE_FOR_ONE],
             TestDynamicSupervisor,
             canceler,
             cancelerPromise

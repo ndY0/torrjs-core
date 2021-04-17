@@ -75,6 +75,7 @@ describe("GenSupervisor", () => {
       const supervisor = new TestPermanentSupervisor();
       const childSpec = await supervisor.childSpec().next();
       expect(childSpec.value).toEqual({
+        startArgs: [RestartStrategy.ONE_FOR_ONE],
         restart: ChildRestartStrategy.PERMANENT,
         shutdown: Infinity,
       });
@@ -90,7 +91,7 @@ describe("GenSupervisor", () => {
       const runSpy = jest.spyOn(supervisor, "run");
       supervisor
         .start(
-          RestartStrategy.ONE_FOR_ALL,
+          [RestartStrategy.ONE_FOR_ALL],
           TestPermanentSupervisor,
           canceler,
           cancelerPromise
@@ -112,7 +113,7 @@ describe("GenSupervisor", () => {
       const runSpy = jest.spyOn(supervisor, "run");
       supervisor
         .start(
-          RestartStrategy.ONE_FOR_ONE,
+          [RestartStrategy.ONE_FOR_ONE],
           TestPermanentSupervisor,
           canceler,
           cancelerPromise
@@ -131,7 +132,7 @@ describe("GenSupervisor", () => {
       const cancelerPromise = getMemoPromise(canceler);
       const test = await supervisor
         .start(
-          RestartStrategy.ONE_FOR_ONE,
+          [RestartStrategy.ONE_FOR_ONE],
           TestPermanentSupervisor,
           canceler,
           cancelerPromise

@@ -23,7 +23,7 @@ abstract class GenServer {
   static [keyForMapSymbol]: Map<string, string> = new Map<string, string>();
   protected abstract init(...args: unknown[]): AsyncGenerator;
   public async *start<U extends typeof GenServer>(
-    startArgs: any,
+    startArgs: any[],
     context: U,
     canceler: AsyncGenerator<[boolean, EventEmitter], never, boolean>,
     cancelerPromise: Promise<boolean>
@@ -44,7 +44,7 @@ abstract class GenServer {
     await tail(
       (state: any) => this.run(canceler, cancelerPromise, context, state),
       canceler,
-      yield* this.init(startArgs),
+      yield* this.init(...startArgs),
       (state) => state === undefined
     );
   }

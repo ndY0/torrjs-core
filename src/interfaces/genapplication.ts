@@ -11,6 +11,8 @@ import {
   getMemoPromise,
   loopWorker,
   putMemoValue,
+  getMemoValue,
+  delay,
 } from "../utils";
 import EventEmitter from "events";
 import { supervise } from "../supervision";
@@ -31,14 +33,11 @@ class GenApplication<T extends typeof GenServer & (new () => GenServer)> {
         childSpecs,
         strategy: this.spec.childStrategy,
       },
-      (specs) => (console.log(specs), specs.childSpecs.length === 0)
+      (specs) => specs.childSpecs.length === 0
     );
   }
   public async stop() {
     await putMemoValue(this.canceler, false);
-    // await new Promise<void>((resolve) =>
-    //   setTimeout(() => resolve(), this.spec.strategy.shutdown || 5_000)
-    // );
   }
   private async *init(): AsyncGenerator {
     const children: [
@@ -52,7 +51,7 @@ class GenApplication<T extends typeof GenServer & (new () => GenServer)> {
     return childSpecs;
   }
   private async *run(
-    _canceler: AsyncGenerator<[boolean, EventEmitter], never, boolean>,
+    canceler: AsyncGenerator<[boolean, EventEmitter], never, boolean>,
     cancelerPromise: Promise<boolean>,
     {
       strategy,
@@ -69,11 +68,7 @@ class GenApplication<T extends typeof GenServer & (new () => GenServer)> {
     },
     undefined
   > {
-    console.log({
-      childSpecs,
-      strategy,
-    });
-    return yield* supervise(childSpecs, strategy, cancelerPromise);
+    return yield* supervise(childSpecs, strategy, canceler, cancelerPromise);
   }
 }
 

@@ -193,6 +193,7 @@ describe("supervise", () => {
     const supervisorGenerator = supervise(
       resolvedChildren,
       RestartStrategy.ONE_FOR_ALL,
+      upperCanceler,
       upperCancelerPromise
     );
     let value;
@@ -226,6 +227,7 @@ describe("supervise", () => {
     const supervisorGenerator = supervise(
       resolvedChildren,
       RestartStrategy.ONE_FOR_ALL,
+      upperCanceler,
       upperCancelerPromise
     );
     let value;
@@ -257,6 +259,7 @@ describe("supervise", () => {
     const supervisorGenerator = supervise(
       resolvedChildren,
       RestartStrategy.ONE_FOR_ALL,
+      upperCanceler,
       upperCancelerPromise
     );
     let value;
@@ -292,6 +295,7 @@ describe("supervise", () => {
     const supervisorGenerator = supervise(
       resolvedChildren,
       RestartStrategy.ONE_FOR_ONE,
+      upperCanceler,
       upperCancelerPromise
     );
     const res = await Promise.all([
@@ -314,12 +318,54 @@ describe("supervise", () => {
     expect(startSpies[5]).not.toHaveBeenCalledTimes(1);
     expect(res[0].value.childSpecs.length).toEqual(0);
   });
+  it(`should loop workers forever, restarting all at once,
+  allowing stopping from external source in ONE_FOR_ALL restart strategy`, async () => {
+    const upperCanceler = memo(true);
+    const upperCancelerPromise = getMemoPromise(upperCanceler);
+    const children = [
+      [DelayFailureTransientServer, new DelayFailureTransientServer()],
+      [DelayFailureTemporaryServer, new DelayFailureTemporaryServer()],
+      [DelayFailurePermanentServer, new DelayFailurePermanentServer()],
+      [DelayNormalTransientServer, new DelayNormalTransientServer()],
+      [DelayNormalTemporaryServer, new DelayNormalTemporaryServer()],
+      [DelayNormalPermanentServer, new DelayNormalPermanentServer()],
+    ].map(async (value) => [
+      value[0],
+      value[1],
+      <ChildSpec>(await (<GenServer>value[1]).childSpec().next()).value,
+    ]);
+    const resolvedChildren = <any>await Promise.all(children);
+    const startSpies = resolvedChildren.map((child: any) =>
+      jest.spyOn(child[1], "start")
+    );
+    const supervisorGenerator = supervise(
+      resolvedChildren,
+      RestartStrategy.ONE_FOR_ALL,
+      upperCanceler,
+      upperCancelerPromise
+    );
+    const res = await Promise.all([
+      supervisorGenerator.next(),
+      new Promise<void>((resolve) => {
+        putMemoValue(upperCanceler, false);
+        resolve();
+      }),
+    ]);
+    expect(startSpies[0]).toHaveBeenCalledTimes(1);
+    expect(startSpies[1]).toHaveBeenCalledTimes(1);
+    expect(startSpies[2]).toHaveBeenCalledTimes(1);
+    expect(startSpies[3]).toHaveBeenCalledTimes(1);
+    expect(startSpies[4]).toHaveBeenCalledTimes(1);
+    expect(startSpies[5]).toHaveBeenCalledTimes(1);
+    expect(res[0].value.childSpecs.length).toEqual(0);
+  });
   it("should return immediately if child specs is empty", async () => {
     const upperCanceler = memo(true);
     const upperCancelerPromise = getMemoPromise(upperCanceler);
     const supervisorGenerator = supervise(
       [],
       RestartStrategy.ONE_FOR_ONE,
+      upperCanceler,
       upperCancelerPromise
     );
     const res = await supervisorGenerator.next();
@@ -344,6 +390,7 @@ describe("supervise", () => {
     const supervisorGenerator = supervise(
       resolvedChildren,
       2,
+      upperCanceler,
       upperCancelerPromise
     );
     const res = await supervisorGenerator.next();

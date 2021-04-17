@@ -144,7 +144,7 @@ describe("GenServer", () => {
       const cancelerPromise = getMemoPromise(canceler);
       const testDecoratedServer = new TestDecoratedGenServer();
       const startGenerator = testDecoratedServer.start(
-        {},
+        [{}],
         TestDecoratedGenServer,
         canceler,
         cancelerPromise
@@ -170,7 +170,7 @@ describe("GenServer", () => {
       const serverId = serverIdDescriptor?.value;
       const spyTestCast = jest.spyOn(testDecoratedServer, "handleTestCast");
       const startGenerator = testDecoratedServer.start(
-        {},
+        [{}],
         TestDecoratedGenServer,
         canceler,
         cancelerPromise
@@ -200,7 +200,7 @@ describe("GenServer", () => {
       const serverId = serverIdDescriptor?.value;
       const spyTestCast = jest.spyOn(testDecoratedServer, "handleTestCast");
       const startGenerator = testDecoratedServer.start(
-        {},
+        [{}],
         TestDecoratedGenServer,
         canceler,
         cancelerPromise
@@ -235,7 +235,7 @@ describe("GenServer", () => {
       const serverId = serverIdDescriptor?.value;
       const spyTestCall = jest.spyOn(testDecoratedServer, "handleTestCall");
       const startGenerator = testDecoratedServer.start(
-        {},
+        [{}],
         TestDecoratedGenServer,
         canceler,
         cancelerPromise
@@ -275,7 +275,7 @@ describe("GenServer", () => {
       const serverId = serverIdDescriptor?.value;
       const spyTestCall = jest.spyOn(testDecoratedServer, "handleTestCall");
       const startGenerator = testDecoratedServer.start(
-        {},
+        [{}],
         TestDecoratedGenServer,
         canceler,
         cancelerPromise
@@ -331,7 +331,7 @@ describe("GenServer", () => {
       const spyTestCall = jest.spyOn(testDecoratedServer, "handleTestCall");
       const spyTestCast = jest.spyOn(testDecoratedServer, "handleTestCast");
       const startGenerator = testDecoratedServer.start(
-        {},
+        [{}],
         TestDecoratedGenServer,
         canceler,
         cancelerPromise
@@ -373,7 +373,7 @@ describe("GenServer", () => {
         "handleTestCall"
       );
       const startGenerator = testDecoratedExternalServer.start(
-        {},
+        [{}],
         TestDecoratedExternalGenServer,
         canceler,
         cancelerPromise
