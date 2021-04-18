@@ -1,3 +1,3 @@
-type Class<T> = { new (...args: unknown[]): T };
+type Class<T> = T & { new (...args: unknown[]): T };
 
 export { Class };
