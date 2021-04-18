@@ -25,6 +25,14 @@ class GenApplication<T extends typeof GenServer & (new () => GenServer)> {
     this.cancelerPromise = getMemoPromise(this.canceler);
   }
   public async start() {
+    /**
+     * this is needed in order to keep event loop from exiting if all workers are awaiting in the take event state
+     * (no execution would be scheduled otherwise)
+     */
+    const timeout = setInterval(
+      /* istanbul ignore next */ () => {},
+      Math.pow(2, 32) / 2 - 1
+    );
     const childSpecs = await promisifyAsyncGenerator(this.init());
     await tail(
       (specs) => this.run(this.canceler, this.cancelerPromise, specs),
@@ -35,6 +43,7 @@ class GenApplication<T extends typeof GenServer & (new () => GenServer)> {
       },
       (specs) => specs.childSpecs.length === 0
     );
+    clearInterval(timeout);
   }
   public async stop() {
     await putMemoValue(this.canceler, false);

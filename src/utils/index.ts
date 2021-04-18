@@ -6,10 +6,7 @@ async function promisify<Treturn>(
   context?: any
 ): Promise<Treturn> {
   return new Promise((resolve: (res: Treturn) => void) => {
-    //this is needed in order to keep event loop from exiting (no execution is scheduled at this point otherwise)
-    const timeout = setInterval(() => {}, Math.pow(2, 32) / 2 - 1);
     fn.bind(context)((...result: [Treturn]) => {
-      clearInterval(timeout);
       resolve(...result);
     });
   });
