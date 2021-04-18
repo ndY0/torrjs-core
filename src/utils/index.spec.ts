@@ -130,7 +130,7 @@ describe("combineMemos", () => {
     const mergeFunction = (...innerValues: boolean[]) => {
       return innerValues.reduce((acc, curr) => acc && curr, true);
     };
-    const combined = await combineMemos(mergeFunction, memo1, memo2, memo3);
+    const combined = combineMemos(mergeFunction, memo1, memo2, memo3);
     expect(getMemoValue(combined)).toBeFalsy();
   });
   it(`should update the internal state if one of the inner memo updates, and emit the new value in it's inner emitter`, async () => {
@@ -140,15 +140,30 @@ describe("combineMemos", () => {
     const mergeFunction = (...innerValues: boolean[]) => {
       return innerValues.reduce((acc, curr) => acc && curr, true);
     };
-    const combined = await combineMemos(mergeFunction, memo1, memo2, memo3);
+    const combined = combineMemos(mergeFunction, memo1, memo2, memo3);
     const combinedPromise = getMemoPromise(combined);
-    // await delay(200);
-    console.log("emiting !");
     putMemoValue(memo2, true);
-    console.log("emitted !");
     expect(getMemoValue(combined)).toBeTruthy();
     const val = await combinedPromise;
     expect(val).toBeTruthy();
+  });
+  it(`should update the internal state if one is provided by next, update the inner memos with the value,
+  and finally emit the value in its inner emitter`, async () => {
+    const memo1 = memo(true);
+    const memo2 = memo(false);
+    const memo3 = memo(true);
+    const mergeFunction = (...innerValues: boolean[]) => {
+      return innerValues.reduce((acc, curr) => acc && curr, true);
+    };
+    const combined = combineMemos(mergeFunction, memo1, memo2, memo3);
+    const combinedPromise = getMemoPromise(combined);
+    putMemoValue(combined, true);
+    expect(getMemoValue(combined)).toBeTruthy();
+    const val = await combinedPromise;
+    expect(val).toBeTruthy();
+    expect(getMemoValue(memo1)).toBeTruthy();
+    expect(getMemoValue(memo2)).toBeTruthy();
+    expect(getMemoValue(memo3)).toBeTruthy();
   });
 });
 

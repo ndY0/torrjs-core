@@ -74,7 +74,7 @@ function combineMemos<T, U>(
         .map((memo) => memo.next())
         .map(({ value: [memoized, _] }) => memoized)
     );
-    let shouldEmitAtLast: boolean = false;
+    let shouldEmit: boolean = true;
     const memosLength: number = memos.length - 1;
     let currentMemoCount: number = 0;
     const emitter = new EventEmitter();
@@ -85,33 +85,33 @@ function combineMemos<T, U>(
     innerEmittersRef.forEach((innerEmitter, position) => {
       innerEmitter.on("updated", (data: T) => {
         innerStates[position] = data;
-        console.log("received update from inner ! ", data);
-        if (shouldEmitAtLast && currentMemoCount !== memosLength) {
-          currentMemoCount += 1;
-        } else {
-          shouldEmitAtLast = false;
+        if (shouldEmit) {
           currentMemoCount = 0;
-          console.log(innerStates);
-          const emittableState = mergeFunction(...innerStates);
-          console.log("emitting from outter !", emittableState);
-          console.log(emitter);
-          emitter.emit("updated", emittableState);
+          state = mergeFunction(...innerStates);
+          emitter.emit("updated", state);
+        } else {
+          currentMemoCount += 1;
+          if (currentMemoCount === memosLength) {
+            shouldEmit = true;
+            currentMemoCount = 0;
+          }
         }
       });
     });
     while (true) {
       const passed: T | undefined = yield [state, emitter];
-      innerStates = memos
-        .map((memo) => (passed ? memo.next(passed) : memo.next()))
-        .map(({ value: [memoized, _] }) => memoized);
-      console.log(innerStates);
-      state = mergeFunction(...innerStates);
       if (passed !== undefined) {
-        shouldEmitAtLast = true;
-
+        shouldEmit = false;
+        innerStates = memos
+          .map((memo) => memo.next(passed))
+          .map(({ value: [memoized, _] }) => memoized);
+        state = mergeFunction(...innerStates);
         emitter.emit("updated", state);
+      } else {
+        innerStates = memos
+          .map((memo) => memo.next())
+          .map(({ value: [memoized, _] }) => memoized);
       }
-      emitter.emit("ready");
     }
   })();
   generator.next();
@@ -130,7 +130,6 @@ function memo<T>(initialState: T): Generator<[T, EventEmitter], never, T> {
         state = passed;
         emitter.emit("updated", state);
       }
-      emitter.emit("ready");
     }
   })(initialState);
   generator.next();

@@ -34,9 +34,8 @@ abstract class GenRegistry extends GenServer {
       (state: any) => this.run(canceler, cancelerPromise, context, state),
       canceler,
       yield* this.init(),
-      (state) => (console.log(state), state === undefined)
+      (state) => state === undefined
     );
-    console.log("should be reached");
   }
   protected async *run<U extends typeof GenServer>(
     _canceler: Generator<[boolean, EventEmitter], never, boolean>,
@@ -44,13 +43,11 @@ abstract class GenRegistry extends GenServer {
     context: U,
     state: Map<string, string[]>
   ) {
-    console.log("reeeeeee");
     const res = yield* take<ServerEvent<RegistryAction>>(
       context.name,
       this[keyForCombinedSelfReadable],
       cancelerPromise
     );
-    console.log(res);
     if (res) {
       const {
         data: [data],

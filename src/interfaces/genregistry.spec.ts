@@ -7,6 +7,7 @@ import EventEmitter from "events";
 import { ChildSpec, ChildRestartStrategy } from "../supervision/types";
 import { keyForIdSymbol } from "../utils/symbols";
 
+@Server(new InMemoryEmitter(10), { test: new InMemoryEmitter(10) })
 class DelayNormalPermanentServer extends GenServer {
   protected async *init(
     ...args: unknown[]
@@ -41,12 +42,11 @@ describe("GenRegistry", () => {
       const initSpy = jest.spyOn(registry, "init");
       const runSpy = jest.spyOn(registry, "run");
       const res = await Promise.all([
-        registry.start({}, TestGenRegistry, canceler, cancelerPromise).next(),
+        registry.start([], TestGenRegistry, canceler, cancelerPromise).next(),
         (async () => {
           await delay(200);
           expect(initSpy).toHaveBeenCalledTimes(1);
           expect(runSpy).toHaveBeenCalledTimes(1);
-          console.log("exiting first");
           putMemoValue(canceler, false);
         })(),
       ]);
@@ -61,15 +61,14 @@ describe("GenRegistry", () => {
       const runSpy = jest.spyOn(registry, "run");
       const server = new DelayNormalPermanentServer();
       const res = await Promise.all([
-        registry.start({}, TestGenRegistry, canceler, cancelerPromise).next(),
+        registry.start([], TestGenRegistry, canceler, cancelerPromise).next(),
         (async () => {
-          await delay(10);
-          console.log("been there after");
+          await delay(200);
           expect(runSpy).toHaveBeenNthCalledWith(
             1,
-            canceler,
-            cancelerPromise,
-            TestGenRegistry,
+            expect.anything(),
+            expect.anything(),
+            expect.anything(),
             new Map()
           );
           await GenRegistry.register(
@@ -82,9 +81,9 @@ describe("GenRegistry", () => {
           secondeCallArg.set("myCustomKey", [server[keyForIdSymbol]]);
           expect(runSpy).toHaveBeenNthCalledWith(
             2,
-            canceler,
-            cancelerPromise,
-            TestGenRegistry,
+            expect.anything(),
+            expect.anything(),
+            expect.anything(),
             secondeCallArg
           );
           await GenRegistry.register(
@@ -92,17 +91,17 @@ describe("GenRegistry", () => {
             "myCustomKey",
             server[keyForIdSymbol]
           ).next();
-          await delay(200);
           const thirdCallArg = new Map();
           secondeCallArg.set("myCustomKey", [
             server[keyForIdSymbol],
             server[keyForIdSymbol],
           ]);
+          await delay(200);
           expect(runSpy).toHaveBeenNthCalledWith(
             3,
-            canceler,
-            cancelerPromise,
-            TestGenRegistry,
+            expect.anything(),
+            expect.anything(),
+            expect.anything(),
             secondeCallArg
           );
           putMemoValue(canceler, false);
@@ -118,7 +117,7 @@ describe("GenRegistry", () => {
       const cancelerPromise = getMemoPromise(canceler);
       const server = new DelayNormalPermanentServer();
       const res = await Promise.all([
-        registry.start({}, TestGenRegistry, canceler, cancelerPromise).next(),
+        registry.start([], TestGenRegistry, canceler, cancelerPromise).next(),
         (async () => {
           await GenRegistry.register(
             [TestGenRegistry],
@@ -159,12 +158,10 @@ describe("GenRegistry", () => {
             5_000
           ).next();
           expect(dataEmpty.value).toEqual([]);
-          console.log("and gere ?");
           putMemoValue(canceler, false);
         })(),
       ]);
       expect(res[0].done).toBeTruthy();
-      console.log("endend 2");
     });
   });
 });

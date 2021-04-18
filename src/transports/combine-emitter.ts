@@ -47,7 +47,6 @@ class CombineEmitter implements TransportEmitter {
       result = await Promise.race([
         (async function (passedCanceler, outterCanceler) {
           await promisify(cure(stream.once, stream)("readable"), stream);
-          console.log("there !");
           const shouldRun = [
             getMemoValue(passedCanceler),
             getMemoValue(outterCanceler),
