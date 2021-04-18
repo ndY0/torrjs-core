@@ -21,7 +21,7 @@ class DelayNormalTemporaryServer extends GenServer {
   public async *start<U extends typeof GenServer>(
     startArgs: any,
     context: U,
-    canceler: AsyncGenerator<[boolean, EventEmitter], never, boolean>,
+    canceler: Generator<[boolean, EventEmitter], never, boolean>,
     cancelerPromise: Promise<boolean>
   ) {
     await delay(200);
@@ -49,10 +49,8 @@ describe("GenApplication", () => {
     });
     const memo1 = Reflect.get(application, "canceler");
     const memoPromise = Reflect.get(application, "cancelerPromise");
-    const testMemo = memo(true);
-    const testMemoPromise = getMemoPromise(testMemo);
-    expect(memo1).toEqual(testMemo);
-    expect(memoPromise).toEqual(testMemoPromise);
+    expect(memo1.next).toBeInstanceOf(Function);
+    expect(memoPromise).toBeInstanceOf(Promise);
   });
   describe("start", () => {
     it(`should loop supervised children with provided strategy --- ONE_FOR_ALL and stop when stop is called`, async () => {

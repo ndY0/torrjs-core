@@ -9,16 +9,13 @@ import {
   promisifyAsyncGenerator,
   memo,
   getMemoPromise,
-  loopWorker,
   putMemoValue,
-  getMemoValue,
-  delay,
 } from "../utils";
-import EventEmitter from "events";
 import { supervise } from "../supervision";
+import EventEmitter from "events";
 
 class GenApplication<T extends typeof GenServer & (new () => GenServer)> {
-  private canceler: AsyncGenerator<[boolean, EventEmitter], never, boolean>;
+  private canceler: Generator<[boolean, EventEmitter], never, boolean>;
   private cancelerPromise: Promise<boolean>;
   public constructor(private readonly spec: ApplicationSpec<T>) {
     this.canceler = memo(true);
@@ -46,7 +43,7 @@ class GenApplication<T extends typeof GenServer & (new () => GenServer)> {
     clearInterval(timeout);
   }
   public async stop() {
-    await putMemoValue(this.canceler, false);
+    putMemoValue(this.canceler, false);
   }
   private async *init(): AsyncGenerator {
     const children: [
@@ -60,7 +57,7 @@ class GenApplication<T extends typeof GenServer & (new () => GenServer)> {
     return childSpecs;
   }
   private async *run(
-    canceler: AsyncGenerator<[boolean, EventEmitter], never, boolean>,
+    canceler: Generator<[boolean, EventEmitter], never, boolean>,
     cancelerPromise: Promise<boolean>,
     {
       strategy,

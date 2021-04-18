@@ -19,7 +19,7 @@ abstract class GenSupervisor extends GenServer {
   public async *start<U extends typeof GenServer>(
     startArgs: [RestartStrategy],
     context: U,
-    canceler: AsyncGenerator<[boolean, EventEmitter], never, boolean>,
+    canceler: Generator<[boolean, EventEmitter], never, boolean>,
     cancelerPromise: Promise<boolean>
   ) {
     [
@@ -58,7 +58,7 @@ abstract class GenSupervisor extends GenServer {
     return childSpecs;
   }
   protected async *run<U extends typeof GenServer>(
-    canceler: AsyncGenerator<[boolean, EventEmitter], never, boolean>,
+    canceler: Generator<[boolean, EventEmitter], never, boolean>,
     cancelerPromise: Promise<boolean>,
     _context: U,
     {

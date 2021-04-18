@@ -23,7 +23,7 @@ abstract class GenDynamicSupervisor extends GenSupervisor {
     U extends typeof GenServer,
     V extends typeof GenServer & (new () => GenServer)
   >(
-    canceler: AsyncGenerator<[boolean, EventEmitter], never, boolean>,
+    canceler: Generator<[boolean, EventEmitter], never, boolean>,
     cancelerPromise: Promise<boolean>,
     context: U,
     {
@@ -55,7 +55,7 @@ abstract class GenDynamicSupervisor extends GenSupervisor {
         targetChild: V;
       }>
     >(context.name, this[keyForCombinedSelfReadable], cancelerPromise);
-    if (await getMemoValue(canceler)) {
+    if (getMemoValue(canceler)) {
       const child: [
         typeof GenServer & (new () => GenServer),
         GenServer,

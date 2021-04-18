@@ -7,7 +7,7 @@ interface TransportEmitter {
     onceInfo: {
       timeout?: number | Promise<any>;
       event: string | symbol;
-      canceler: AsyncGenerator<[boolean, EventEmitter], never, boolean>;
+      canceler: Generator<[boolean, EventEmitter], never, boolean>;
     },
     listener: (...args: any[]) => void
   ): Promise<void>;

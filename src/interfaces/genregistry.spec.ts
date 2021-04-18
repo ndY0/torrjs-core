@@ -16,7 +16,7 @@ class DelayNormalPermanentServer extends GenServer {
   public async *start<U extends typeof GenServer>(
     startArgs: any,
     context: U,
-    canceler: AsyncGenerator<[boolean, EventEmitter], never, boolean>,
+    canceler: Generator<[boolean, EventEmitter], never, boolean>,
     cancelerPromise: Promise<boolean>
   ) {
     await delay(200);
@@ -46,6 +46,7 @@ describe("GenRegistry", () => {
           await delay(200);
           expect(initSpy).toHaveBeenCalledTimes(1);
           expect(runSpy).toHaveBeenCalledTimes(1);
+          console.log("exiting first");
           putMemoValue(canceler, false);
         })(),
       ]);
@@ -62,7 +63,8 @@ describe("GenRegistry", () => {
       const res = await Promise.all([
         registry.start({}, TestGenRegistry, canceler, cancelerPromise).next(),
         (async () => {
-          await delay(200);
+          await delay(10);
+          console.log("been there after");
           expect(runSpy).toHaveBeenNthCalledWith(
             1,
             canceler,
@@ -118,7 +120,6 @@ describe("GenRegistry", () => {
       const res = await Promise.all([
         registry.start({}, TestGenRegistry, canceler, cancelerPromise).next(),
         (async () => {
-          await delay(200);
           await GenRegistry.register(
             [TestGenRegistry],
             "myCustomKey",
@@ -158,10 +159,12 @@ describe("GenRegistry", () => {
             5_000
           ).next();
           expect(dataEmpty.value).toEqual([]);
+          console.log("and gere ?");
           putMemoValue(canceler, false);
         })(),
       ]);
       expect(res[0].done).toBeTruthy();
+      console.log("endend 2");
     });
   });
 });

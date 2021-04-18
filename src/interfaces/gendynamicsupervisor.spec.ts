@@ -20,7 +20,7 @@ class DelayNormalTemporaryServer extends GenServer {
   public async *start<U extends typeof GenServer>(
     startArgs: any,
     context: U,
-    canceler: AsyncGenerator<[boolean, EventEmitter], never, boolean>,
+    canceler: Generator<[boolean, EventEmitter], never, boolean>,
     cancelerPromise: Promise<boolean>
   ) {
     await delay(200);
@@ -75,7 +75,7 @@ describe("GenDynamicSupervisor", () => {
           await delay(300);
           expect(initSpy).toHaveBeenCalledTimes(1);
           expect(runSpy).toHaveBeenCalledTimes(1);
-          await putMemoValue(canceler, false);
+          putMemoValue(canceler, false);
         })(),
       ]);
     });
@@ -116,7 +116,7 @@ describe("GenDynamicSupervisor", () => {
           await delay(1000);
           expect(initSpy).toHaveBeenCalledTimes(1);
           expect(runSpy).toHaveBeenCalledTimes(3);
-          await putMemoValue(canceler, false);
+          putMemoValue(canceler, false);
         })(),
       ]);
     });

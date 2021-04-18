@@ -25,7 +25,7 @@ abstract class GenServer {
   public async *start<U extends typeof GenServer>(
     startArgs: any[],
     context: U,
-    canceler: AsyncGenerator<[boolean, EventEmitter], never, boolean>,
+    canceler: Generator<[boolean, EventEmitter], never, boolean>,
     cancelerPromise: Promise<boolean>
   ) {
     [
@@ -55,7 +55,7 @@ abstract class GenServer {
     };
   }
   protected async *run<U extends typeof GenServer>(
-    _canceler: AsyncGenerator<[boolean, EventEmitter], never, boolean>,
+    _canceler: Generator<[boolean, EventEmitter], never, boolean>,
     cancelerPromise: Promise<boolean>,
     context: U,
     state: any

@@ -20,7 +20,7 @@ class DelayNormalPermanentServer extends GenServer {
   public async *start<U extends typeof GenServer>(
     startArgs: any,
     context: U,
-    canceler: AsyncGenerator<[boolean, EventEmitter], never, boolean>,
+    canceler: Generator<[boolean, EventEmitter], never, boolean>,
     cancelerPromise: Promise<boolean>
   ) {
     await delay(200);
@@ -42,7 +42,7 @@ class DelayNormalTemporaryServer extends GenServer {
   public async *start<U extends typeof GenServer>(
     startArgs: any,
     context: U,
-    canceler: AsyncGenerator<[boolean, EventEmitter], never, boolean>,
+    canceler: Generator<[boolean, EventEmitter], never, boolean>,
     cancelerPromise: Promise<boolean>
   ) {
     await delay(200);

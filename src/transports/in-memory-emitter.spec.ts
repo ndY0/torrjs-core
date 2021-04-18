@@ -81,7 +81,7 @@ describe("InMemoryEmitter", () => {
         (async () => {
           const testStream = streams?.value.get("test");
           const spyRead = jest.spyOn(testStream, "read");
-          await putMemoValue(canceler, false);
+          putMemoValue(canceler, false);
           await emitter.emit({ event: "test" }, {});
           await new Promise<void>((resolve) =>
             setTimeout(() => {

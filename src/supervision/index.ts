@@ -13,7 +13,7 @@ import EventEmitter from "events";
 async function* supervise(
   children: [typeof GenServer, GenServer, ChildSpec][],
   strategy: RestartStrategy,
-  upperCanceler: AsyncGenerator<[boolean, EventEmitter], never, boolean>,
+  upperCanceler: Generator<[boolean, EventEmitter], never, boolean>,
   upperCancelerPromise: Promise<boolean>
 ): AsyncGenerator<
   any,
@@ -40,14 +40,14 @@ async function* supervise(
               Promise.race([upperCancelerPromise, cancelerPromise])
             )
           );
-          if (await getMemoValue(upperCanceler)) {
+          if (getMemoValue(upperCanceler)) {
             return spec.restart === ChildRestartStrategy.PERMANENT
               ? [Child, child, spec]
               : undefined;
           }
           return undefined;
         } catch (e) {
-          if (await getMemoValue(upperCanceler)) {
+          if (getMemoValue(upperCanceler)) {
             return spec.restart === ChildRestartStrategy.TRANSIENT ||
               spec.restart === ChildRestartStrategy.PERMANENT
               ? [Child, child, spec]
@@ -57,8 +57,8 @@ async function* supervise(
         }
       })()
     );
-    await Promise.race(mappedChildren).then(
-      async () => await putMemoValue(canceler, false)
+    await Promise.race(mappedChildren).then(() =>
+      putMemoValue(canceler, false)
     );
     const result = await Promise.all(mappedChildren);
     return {

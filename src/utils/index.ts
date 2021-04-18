@@ -22,12 +22,12 @@ function cure<Tfirst, Trest, Treturn>(
 
 async function tail<T>(
   factory: (acc: T) => AsyncGenerator<any, T, T | undefined>,
-  canceler: AsyncGenerator<[boolean, EventEmitter], never, boolean>,
+  canceler: Generator<[boolean, EventEmitter], never, boolean>,
   acc: T,
   stopCondition?: (state: T) => boolean
 ): Promise<T | undefined> {
   const iterator = factory(acc);
-  if (await getMemoValue(canceler)) {
+  if (getMemoValue(canceler)) {
     let done;
     let res: T = acc;
     while (!done) {
@@ -43,35 +43,85 @@ async function tail<T>(
   }
 }
 
-async function getMemoPromise<T>(
-  memo: AsyncGenerator<[T, EventEmitter], never, T>
-) {
+function getMemoPromise<T>(memo: Generator<[T, EventEmitter], never, T>) {
   const {
     value: [_, emitter],
-  } = await memo.next();
+  } = memo.next();
   return promisify<T>(cure(emitter.once, emitter)("updated"), emitter);
 }
 
-async function getMemoValue<T>(
-  memo: AsyncGenerator<[T, EventEmitter], never, T>
-) {
+function getMemoValue<T>(memo: Generator<[T, EventEmitter], never, T>) {
   const {
     value: [memoized, _],
-  } = await memo.next();
+  } = memo.next();
   return memoized;
 }
 
-async function putMemoValue<T>(
-  memo: AsyncGenerator<[T, EventEmitter], never, T>,
+function putMemoValue<T>(
+  memo: Generator<[T, EventEmitter], never, T>,
   value: T
 ) {
-  await memo.next(value);
+  memo.next(value);
 }
 
-function memo<T>(initialState: T): AsyncGenerator<[T, EventEmitter], never, T> {
-  const generator = (async function* (
+function combineMemos<T, U>(
+  mergeFunction: (...states: T[]) => U,
+  ...memos: Generator<[T, EventEmitter], never, T>[]
+): Generator<[U, EventEmitter], never, T> {
+  const generator: Generator<[U, EventEmitter], never, T> = <any>(function* () {
+    let state: U = mergeFunction(
+      ...memos
+        .map((memo) => memo.next())
+        .map(({ value: [memoized, _] }) => memoized)
+    );
+    let shouldEmitAtLast: boolean = false;
+    const memosLength: number = memos.length - 1;
+    let currentMemoCount: number = 0;
+    const emitter = new EventEmitter();
+    const innerEmittersRef = memos
+      .map((memo) => memo.next())
+      .map(({ value: [_, innerEmitter] }) => innerEmitter);
+    let innerStates: T[] = [];
+    innerEmittersRef.forEach((innerEmitter, position) => {
+      innerEmitter.on("updated", (data: T) => {
+        innerStates[position] = data;
+        console.log("received update from inner ! ", data);
+        if (shouldEmitAtLast && currentMemoCount !== memosLength) {
+          currentMemoCount += 1;
+        } else {
+          shouldEmitAtLast = false;
+          currentMemoCount = 0;
+          console.log(innerStates);
+          const emittableState = mergeFunction(...innerStates);
+          console.log("emitting from outter !", emittableState);
+          console.log(emitter);
+          emitter.emit("updated", emittableState);
+        }
+      });
+    });
+    while (true) {
+      const passed: T | undefined = yield [state, emitter];
+      innerStates = memos
+        .map((memo) => (passed ? memo.next(passed) : memo.next()))
+        .map(({ value: [memoized, _] }) => memoized);
+      console.log(innerStates);
+      state = mergeFunction(...innerStates);
+      if (passed !== undefined) {
+        shouldEmitAtLast = true;
+
+        emitter.emit("updated", state);
+      }
+      emitter.emit("ready");
+    }
+  })();
+  generator.next();
+  return generator;
+}
+
+function memo<T>(initialState: T): Generator<[T, EventEmitter], never, T> {
+  const generator = (function* (
     initialState: T
-  ): AsyncGenerator<[T, EventEmitter], never, T> {
+  ): Generator<[T, EventEmitter], never, T> {
     let state: T = initialState;
     const emitter = new EventEmitter();
     while (true) {
@@ -80,6 +130,7 @@ function memo<T>(initialState: T): AsyncGenerator<[T, EventEmitter], never, T> {
         state = passed;
         emitter.emit("updated", state);
       }
+      emitter.emit("ready");
     }
   })(initialState);
   generator.next();
@@ -102,17 +153,17 @@ async function promisifyAsyncGenerator<T>(
 async function loopWorker(
   factory: () => Promise<any>,
   spec: ChildSpec,
-  canceler: AsyncGenerator<[boolean, EventEmitter], never, boolean>
+  canceler: Generator<[boolean, EventEmitter], never, boolean>
 ): Promise<void> {
   try {
-    if (await getMemoValue(canceler)) {
+    if (getMemoValue(canceler)) {
       await factory();
       if (spec.restart === ChildRestartStrategy.PERMANENT) {
         return loopWorker(factory, spec, canceler);
       }
     }
   } catch (_e) {
-    if (await getMemoValue(canceler)) {
+    if (getMemoValue(canceler)) {
       if (
         spec.restart === ChildRestartStrategy.TRANSIENT ||
         spec.restart === ChildRestartStrategy.PERMANENT
@@ -132,6 +183,7 @@ export {
   cure,
   tail,
   memo,
+  combineMemos,
   getMemoPromise,
   getMemoValue,
   putMemoValue,
