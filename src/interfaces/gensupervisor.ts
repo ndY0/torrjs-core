@@ -21,11 +21,12 @@ import {
 import { CombineEmitter } from "../transports/combine-emitter";
 import { take } from "../effects";
 import { ServerEvent } from "../events/types";
+import { TransportEmitter } from "../transports/interface";
 
 // TODO : implements application management calls, supervisors, dynsupervisors, application child registration update
 abstract class GenSupervisor extends GenServer {
   protected [keyForSupervisedChidren]: {
-    id: string;
+    id: string | null;
     canceler: Generator<[boolean, EventEmitter], never, boolean>;
   }[];
   protected abstract children(): AsyncGenerator<
@@ -79,7 +80,13 @@ abstract class GenSupervisor extends GenServer {
     await Promise.all([
       tail(
         (specs) =>
-          this.run(combinedCanceler, combinedCancelerPromise, context, specs),
+          this.run(
+            combinedCanceler,
+            combinedCancelerPromise,
+            context,
+            this[keyForSupervisedChidren],
+            specs
+          ),
         canceler,
         {
           childSpecs,
@@ -120,6 +127,10 @@ abstract class GenSupervisor extends GenServer {
     canceler: Generator<[boolean, EventEmitter], never, boolean>,
     cancelerPromise: Promise<boolean>,
     _context: U,
+    supervised: {
+      id: string | null;
+      canceler: Generator<[boolean, EventEmitter], never, boolean>;
+    }[],
     {
       strategy,
       childSpecs,
@@ -145,7 +156,13 @@ abstract class GenSupervisor extends GenServer {
     },
     undefined
   > {
-    return yield* supervise(childSpecs, strategy, canceler, cancelerPromise);
+    return yield* supervise(
+      childSpecs,
+      strategy,
+      canceler,
+      cancelerPromise,
+      supervised
+    );
   }
   protected async *runManagement<U extends typeof GenServer>(
     canceler: Generator<[boolean, EventEmitter], never, boolean>,
@@ -162,11 +179,29 @@ abstract class GenSupervisor extends GenServer {
       return true;
     }
     if (event && event.action === "stopChild") {
-      // TODO : stop child and remove it from registration
+      const {
+        data: [{ id }],
+      } = event;
+      const child = this[keyForSupervisedChidren].find(
+        (child) => child.id === id
+      );
+      if (child) {
+        putMemoValue(child.canceler, false);
+      }
       return true;
     }
     if (event && event.action === "lookup") {
-      // TODO : return array of server id objects
+      if (event.caller) {
+        (event.transport === "internal"
+          ? context.eventEmitter
+          : <TransportEmitter>context.externalEventEmitters.get(event.transport)
+        ).emit(
+          { event: event.caller },
+          this[keyForSupervisedChidren]
+            .map(({ id }) => id)
+            .filter((id) => id !== null)
+        );
+      }
       return true;
     }
   }

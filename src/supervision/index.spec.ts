@@ -9,6 +9,8 @@ import {
 } from "../utils";
 import { ChildSpec, ChildRestartStrategy, RestartStrategy } from "./types";
 import { supervise } from ".";
+import { GenSupervisor } from "../interfaces/gensupervisor";
+import { keyForIdSymbol } from "../utils/symbols";
 
 class DelayFailurePermanentServer extends GenServer {
   protected async *init(
@@ -190,11 +192,28 @@ describe("supervise", () => {
     const startSpies = resolvedChildren.map((child: any) =>
       jest.spyOn(child[1], "start")
     );
+    const supervised = resolvedChildren.map(
+      (
+        childSpecs: [
+          typeof GenServer,
+          GenServer,
+          ChildSpec,
+          Generator<[boolean, EventEmitter], never, boolean>
+        ]
+      ) => ({
+        id:
+          childSpecs[1] instanceof GenSupervisor
+            ? childSpecs[0].name
+            : childSpecs[1][keyForIdSymbol],
+        canceler: childSpecs[3],
+      })
+    );
     const supervisorGenerator = supervise(
       resolvedChildren,
       RestartStrategy.ONE_FOR_ALL,
       upperCanceler,
-      upperCancelerPromise
+      upperCancelerPromise,
+      supervised
     );
     let value;
     let done = false;
@@ -224,11 +243,28 @@ describe("supervise", () => {
     const startSpies = resolvedChildren.map((child: any) =>
       jest.spyOn(child[1], "start")
     );
+    const supervised = resolvedChildren.map(
+      (
+        childSpecs: [
+          typeof GenServer,
+          GenServer,
+          ChildSpec,
+          Generator<[boolean, EventEmitter], never, boolean>
+        ]
+      ) => ({
+        id:
+          childSpecs[1] instanceof GenSupervisor
+            ? childSpecs[0].name
+            : childSpecs[1][keyForIdSymbol],
+        canceler: childSpecs[3],
+      })
+    );
     const supervisorGenerator = supervise(
       resolvedChildren,
       RestartStrategy.ONE_FOR_ALL,
       upperCanceler,
-      upperCancelerPromise
+      upperCancelerPromise,
+      supervised
     );
     let value;
     let done = false;
@@ -256,11 +292,28 @@ describe("supervise", () => {
     const startSpies = resolvedChildren.map((child: any) =>
       jest.spyOn(child[1], "start")
     );
+    const supervised = resolvedChildren.map(
+      (
+        childSpecs: [
+          typeof GenServer,
+          GenServer,
+          ChildSpec,
+          Generator<[boolean, EventEmitter], never, boolean>
+        ]
+      ) => ({
+        id:
+          childSpecs[1] instanceof GenSupervisor
+            ? childSpecs[0].name
+            : childSpecs[1][keyForIdSymbol],
+        canceler: childSpecs[3],
+      })
+    );
     const supervisorGenerator = supervise(
       resolvedChildren,
       RestartStrategy.ONE_FOR_ALL,
       upperCanceler,
-      upperCancelerPromise
+      upperCancelerPromise,
+      supervised
     );
     let value;
     let done = false;
@@ -292,11 +345,28 @@ describe("supervise", () => {
     const startSpies = resolvedChildren.map((child: any) =>
       jest.spyOn(child[1], "start")
     );
+    const supervised = resolvedChildren.map(
+      (
+        childSpecs: [
+          typeof GenServer,
+          GenServer,
+          ChildSpec,
+          Generator<[boolean, EventEmitter], never, boolean>
+        ]
+      ) => ({
+        id:
+          childSpecs[1] instanceof GenSupervisor
+            ? childSpecs[0].name
+            : childSpecs[1][keyForIdSymbol],
+        canceler: childSpecs[3],
+      })
+    );
     const supervisorGenerator = supervise(
       resolvedChildren,
       RestartStrategy.ONE_FOR_ONE,
       upperCanceler,
-      upperCancelerPromise
+      upperCancelerPromise,
+      supervised
     );
     const res = await Promise.all([
       supervisorGenerator.next(),
@@ -338,11 +408,28 @@ describe("supervise", () => {
     const startSpies = resolvedChildren.map((child: any) =>
       jest.spyOn(child[1], "start")
     );
+    const supervised = resolvedChildren.map(
+      (
+        childSpecs: [
+          typeof GenServer,
+          GenServer,
+          ChildSpec,
+          Generator<[boolean, EventEmitter], never, boolean>
+        ]
+      ) => ({
+        id:
+          childSpecs[1] instanceof GenSupervisor
+            ? childSpecs[0].name
+            : childSpecs[1][keyForIdSymbol],
+        canceler: childSpecs[3],
+      })
+    );
     const supervisorGenerator = supervise(
       resolvedChildren,
       RestartStrategy.ONE_FOR_ALL,
       upperCanceler,
-      upperCancelerPromise
+      upperCancelerPromise,
+      supervised
     );
     const res = await Promise.all([
       supervisorGenerator.next(),
@@ -366,7 +453,8 @@ describe("supervise", () => {
       [],
       RestartStrategy.ONE_FOR_ONE,
       upperCanceler,
-      upperCancelerPromise
+      upperCancelerPromise,
+      []
     );
     const res = await supervisorGenerator.next();
     expect(res.value.childSpecs.length).toEqual(0);
@@ -387,11 +475,28 @@ describe("supervise", () => {
       <ChildSpec>(await (<GenServer>value[1]).childSpec().next()).value,
     ]);
     const resolvedChildren = <any>await Promise.all(children);
+    const supervised = resolvedChildren.map(
+      (
+        childSpecs: [
+          typeof GenServer,
+          GenServer,
+          ChildSpec,
+          Generator<[boolean, EventEmitter], never, boolean>
+        ]
+      ) => ({
+        id:
+          childSpecs[1] instanceof GenSupervisor
+            ? childSpecs[0].name
+            : childSpecs[1][keyForIdSymbol],
+        canceler: childSpecs[3],
+      })
+    );
     const supervisorGenerator = supervise(
       resolvedChildren,
       2,
       upperCanceler,
-      upperCancelerPromise
+      upperCancelerPromise,
+      supervised
     );
     const res = await supervisorGenerator.next();
     expect(res.value.childSpecs.length).toEqual(0);

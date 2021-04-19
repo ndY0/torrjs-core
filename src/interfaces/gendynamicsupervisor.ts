@@ -30,6 +30,10 @@ abstract class GenDynamicSupervisor extends GenSupervisor {
     canceler: Generator<[boolean, EventEmitter], never, boolean>,
     cancelerPromise: Promise<boolean>,
     context: U,
+    supervised: {
+      id: string | null;
+      canceler: Generator<[boolean, EventEmitter], never, boolean>;
+    }[],
     {
       strategy,
       childSpecs,
@@ -73,7 +77,7 @@ abstract class GenDynamicSupervisor extends GenSupervisor {
         res.data[0].spec,
         memo(true),
       ];
-      this[keyForSupervisedChidren].push({
+      supervised.push({
         id:
           child[1] instanceof GenSupervisor
             ? child[0].name
@@ -82,7 +86,14 @@ abstract class GenDynamicSupervisor extends GenSupervisor {
       });
       childSpecs.push(child);
       tail(
-        () => supervise([child], strategy, canceler, cancelerPromise),
+        () =>
+          supervise(
+            [child],
+            strategy,
+            canceler,
+            cancelerPromise,
+            supervised.slice(supervised.length - 1, supervised.length)
+          ),
         canceler,
         null
       );

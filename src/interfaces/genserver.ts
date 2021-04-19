@@ -55,7 +55,13 @@ abstract class GenServer {
     await Promise.all([
       tail(
         (state: any) =>
-          this.run(combinedCanceler, combinedCancelerPromise, context, state),
+          this.run(
+            combinedCanceler,
+            combinedCancelerPromise,
+            context,
+            [],
+            state
+          ),
         canceler,
         yield* this.init(...startArgs),
         (state) => state === undefined
@@ -83,6 +89,10 @@ abstract class GenServer {
     _canceler: Generator<[boolean, EventEmitter], never, boolean>,
     cancelerPromise: Promise<boolean>,
     context: U,
+    supervised: {
+      id: string | null;
+      canceler: Generator<[boolean, EventEmitter], never, boolean>;
+    }[],
     state: any
   ) {
     const event = yield* take<ServerEvent>(

@@ -232,7 +232,8 @@ describe("loopWorker", () => {
       loopWorker(
         factory,
         { restart: ChildRestartStrategy.PERMANENT },
-        canceler
+        canceler,
+        [[], 0]
       ),
       new Promise<void>((resolve) => setTimeout(() => resolve(), 200)),
     ]);
@@ -251,7 +252,8 @@ describe("loopWorker", () => {
       loopWorker(
         factory,
         { restart: ChildRestartStrategy.PERMANENT },
-        canceler
+        canceler,
+        [[], 0]
       ),
       new Promise<void>((resolve) => setTimeout(() => resolve(), 200)),
     ]);
@@ -269,7 +271,8 @@ describe("loopWorker", () => {
       loopWorker(
         factory,
         { restart: ChildRestartStrategy.TRANSIENT },
-        canceler
+        canceler,
+        [[], 0]
       ),
       new Promise<void>((resolve) => setTimeout(() => resolve(), 200)),
     ]);
@@ -290,7 +293,8 @@ describe("loopWorker", () => {
       loopWorker(
         factory,
         { restart: ChildRestartStrategy.TRANSIENT },
-        canceler
+        canceler,
+        [[], 0]
       ),
       new Promise<void>((resolve) => setTimeout(() => resolve(), 200)),
     ]);
@@ -308,7 +312,8 @@ describe("loopWorker", () => {
       loopWorker(
         factory,
         { restart: ChildRestartStrategy.TEMPORARY },
-        canceler
+        canceler,
+        [[], 0]
       ),
       new Promise<void>((resolve) => setTimeout(() => resolve(), 200)),
     ]);
@@ -327,7 +332,8 @@ describe("loopWorker", () => {
       loopWorker(
         factory,
         { restart: ChildRestartStrategy.TEMPORARY },
-        canceler
+        canceler,
+        [[], 0]
       ),
       new Promise<void>((resolve) => setTimeout(() => resolve(), 200)),
     ]);

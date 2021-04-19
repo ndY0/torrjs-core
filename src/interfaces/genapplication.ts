@@ -89,7 +89,13 @@ class GenApplication<T extends typeof GenServer & (new () => GenServer)> {
     },
     undefined
   > {
-    return yield* supervise(childSpecs, strategy, canceler, cancelerPromise);
+    return yield* supervise(
+      childSpecs,
+      strategy,
+      canceler,
+      cancelerPromise,
+      []
+    );
   }
 }
 

@@ -8,6 +8,7 @@ import {
   putMemoValue,
   getMemoValue,
   combineMemos,
+  mutateArray,
 } from "../utils";
 import EventEmitter from "events";
 
@@ -20,7 +21,11 @@ async function* supervise(
   ][],
   strategy: RestartStrategy,
   upperCanceler: Generator<[boolean, EventEmitter], never, boolean>,
-  upperCancelerPromise: Promise<boolean>
+  upperCancelerPromise: Promise<boolean>,
+  supervised: {
+    id: string | null;
+    canceler: Generator<[boolean, EventEmitter], never, boolean>;
+  }[]
 ): AsyncGenerator<
   any,
   {
@@ -31,17 +36,20 @@ async function* supervise(
       Generator<[boolean, EventEmitter], never, boolean>
     ][];
     strategy: RestartStrategy;
+    supervised: {
+      id: string | null;
+      canceler: Generator<[boolean, EventEmitter], never, boolean>;
+    }[];
   },
   undefined
 > {
   if (children.length === 0) {
-    return { childSpecs: [], strategy };
+    return { childSpecs: [], strategy, supervised: [] };
   }
   const canceler = memo(true);
-  const cancelerPromise = getMemoPromise(canceler);
   if (strategy === RestartStrategy.ONE_FOR_ALL) {
     const mappedChildren = children.map(
-      ([Child, child, spec, individualCanceler]) =>
+      ([Child, child, spec, individualCanceler], index) =>
         (async () => {
           try {
             const combined = combineMemos(
@@ -63,21 +71,31 @@ async function* supervise(
               getMemoValue(upperCanceler) &&
               getMemoValue(individualCanceler)
             ) {
-              return spec.restart === ChildRestartStrategy.PERMANENT
-                ? [Child, child, spec, individualCanceler]
-                : undefined;
+              if (spec.restart === ChildRestartStrategy.PERMANENT) {
+                return [Child, child, spec, individualCanceler];
+              } else {
+                supervised[index].id = null;
+                return undefined;
+              }
             }
+            supervised[index].id = null;
             return undefined;
           } catch (e) {
             if (
               getMemoValue(upperCanceler) &&
               getMemoValue(individualCanceler)
             ) {
-              return spec.restart === ChildRestartStrategy.TRANSIENT ||
+              if (
+                spec.restart === ChildRestartStrategy.TRANSIENT ||
                 spec.restart === ChildRestartStrategy.PERMANENT
-                ? [Child, child, spec, individualCanceler]
-                : undefined;
+              ) {
+                return [Child, child, spec, individualCanceler];
+              } else {
+                supervised[index].id = null;
+                return undefined;
+              }
             }
+            supervised[index].id = null;
             return undefined;
           }
         })()
@@ -96,13 +114,17 @@ async function* supervise(
         return childState instanceof Array;
       }),
       strategy,
+      supervised: mutateArray(
+        supervised,
+        supervised.filter((child) => child.id !== null)
+      ),
     };
   } else if (strategy === RestartStrategy.ONE_FOR_ONE) {
     upperCancelerPromise.then((_value: boolean) =>
       putMemoValue(canceler, false)
     );
     await Promise.all(
-      children.map(([Child, child, spec, individualCanceler]) => {
+      children.map(([Child, child, spec, individualCanceler], index) => {
         const combined = combineMemos(
           (...states: boolean[]) =>
             states.reduce((acc, curr) => acc && curr, true),
@@ -121,13 +143,14 @@ async function* supervise(
               )
             ),
           spec,
-          combined
+          combined,
+          [supervised, index]
         );
       })
     );
-    return { childSpecs: [], strategy };
+    return { childSpecs: [], strategy, supervised: [] };
   } else {
-    return { childSpecs: [], strategy };
+    return { childSpecs: [], strategy, supervised: [] };
   }
 }
 

@@ -4,7 +4,13 @@ import { take } from "../effects";
 import { RegistryAction, ServerEvent } from "../events/types";
 import { keyForCombinedSelfReadable } from "../utils/symbols";
 import { CombineEmitter } from "../transports/combine-emitter";
-import { tail } from "../utils";
+import {
+  tail,
+  getMemoPromise,
+  combineMemos,
+  memo,
+  putMemoValue,
+} from "../utils";
 import { TransportEmitter } from "../transports/interface";
 
 abstract class GenRegistry extends GenServer {
@@ -15,7 +21,7 @@ abstract class GenRegistry extends GenServer {
     _startArgs: any,
     context: U,
     canceler: Generator<[boolean, EventEmitter], never, boolean>,
-    cancelerPromise: Promise<boolean>
+    _cancelerPromise: Promise<boolean>
   ) {
     [
       context.eventEmitter,
@@ -30,17 +36,48 @@ abstract class GenRegistry extends GenServer {
       return stream;
     });
     this[keyForCombinedSelfReadable] = new CombineEmitter(combinableStreams);
-    await tail(
-      (state: any) => this.run(canceler, cancelerPromise, context, state),
-      canceler,
-      yield* this.init(),
-      (state) => state === undefined
+    const managementCanceler = memo(true);
+    const combinedCanceler = combineMemos(
+      (...states) => states.reduce((acc, curr) => acc && curr, true),
+      managementCanceler,
+      canceler
     );
+    const combinedCancelerPromise = getMemoPromise(combinedCanceler);
+    await Promise.all([
+      tail(
+        (state: any) =>
+          this.run(
+            combinedCanceler,
+            combinedCancelerPromise,
+            context,
+            [],
+            state
+          ),
+        canceler,
+        yield* this.init(),
+        (state) => state === undefined
+      ),
+      tail(
+        () =>
+          this.runManagement(
+            managementCanceler,
+            combinedCancelerPromise,
+            context
+          ),
+        combinedCanceler,
+        null,
+        (exitValue) => exitValue === undefined
+      ),
+    ]);
   }
   protected async *run<U extends typeof GenServer>(
     _canceler: Generator<[boolean, EventEmitter], never, boolean>,
     cancelerPromise: Promise<boolean>,
     context: U,
+    _supervised: {
+      id: string | null;
+      canceler: Generator<[boolean, EventEmitter], never, boolean>;
+    }[],
     state: Map<string, string[]>
   ) {
     const res = yield* take<ServerEvent<RegistryAction>>(
@@ -73,6 +110,21 @@ abstract class GenRegistry extends GenServer {
       return state;
     }
     return undefined;
+  }
+  protected async *runManagement<U extends typeof GenServer>(
+    canceler: Generator<[boolean, EventEmitter], never, boolean>,
+    cancelerPromise: Promise<boolean>,
+    context: U
+  ) {
+    const event = yield* take<ServerEvent>(
+      `${context.name}_management`,
+      this[keyForCombinedSelfReadable],
+      cancelerPromise
+    );
+    if (event && event.action === "stop") {
+      putMemoValue(canceler, false);
+      return true;
+    }
   }
   public static async *lookup<
     U extends typeof GenRegistry,

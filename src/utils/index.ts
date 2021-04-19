@@ -152,29 +152,45 @@ async function promisifyAsyncGenerator<T>(
 async function loopWorker(
   factory: () => Promise<any>,
   spec: ChildSpec,
-  canceler: Generator<[boolean, EventEmitter], never, boolean>
+  canceler: Generator<[boolean, EventEmitter], never, boolean>,
+  [supervized, index]: [
+    {
+      id: string | null;
+      canceler: Generator<[boolean, EventEmitter], never, boolean>;
+    }[],
+    number
+  ]
 ): Promise<void> {
   try {
     if (getMemoValue(canceler)) {
       await factory();
       if (spec.restart === ChildRestartStrategy.PERMANENT) {
-        return loopWorker(factory, spec, canceler);
+        return loopWorker(factory, spec, canceler, [supervized, index]);
       }
+      supervized[index].id = null;
     }
+    supervized[index].id = null;
   } catch (_e) {
     if (getMemoValue(canceler)) {
       if (
         spec.restart === ChildRestartStrategy.TRANSIENT ||
         spec.restart === ChildRestartStrategy.PERMANENT
       ) {
-        return loopWorker(factory, spec, canceler);
+        return loopWorker(factory, spec, canceler, [supervized, index]);
       }
+      supervized[index].id = null;
     }
+    supervized[index].id = null;
   }
 }
 
 async function delay(ms: number) {
   await new Promise<void>((resolve) => setTimeout(() => resolve(), ms));
+}
+
+function mutateArray(original: any[], replace: any[]) {
+  original.splice(0, original.length, ...replace);
+  return original;
 }
 
 export {
@@ -189,4 +205,5 @@ export {
   promisifyAsyncGenerator,
   loopWorker,
   delay,
+  mutateArray,
 };
