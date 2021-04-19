@@ -1,5 +1,5 @@
 import { v1 } from "uuid";
-import { call, cast, take, takeAny } from "../effects";
+import { call, cast, take, run } from "../effects";
 import { ServerEvent, ServerReply, ReplyTypes } from "../events/types";
 import {
   keyForIdSymbol,
@@ -7,11 +7,15 @@ import {
   keyForCombinedSelfReadable,
 } from "../utils/symbols";
 import { ChildSpec, ChildRestartStrategy } from "../supervision/types";
-import { tail } from "../utils";
+import {
+  tail,
+  memo,
+  combineMemos,
+  getMemoPromise,
+  putMemoValue,
+} from "../utils";
 import { TransportEmitter } from "../transports/interface";
 import EventEmitter from "events";
-import { PassThrough } from "stream";
-import { combineStreams } from "../streams/combine-streams";
 import { CombineEmitter } from "../transports/combine-emitter";
 
 abstract class GenServer {
@@ -41,12 +45,33 @@ abstract class GenServer {
       return stream;
     });
     this[keyForCombinedSelfReadable] = new CombineEmitter(combinableStreams);
-    await tail(
-      (state: any) => this.run(canceler, cancelerPromise, context, state),
-      canceler,
-      yield* this.init(...startArgs),
-      (state) => state === undefined
+    const managementCanceler = memo(true);
+    const combinedCanceler = combineMemos(
+      (...states) => states.reduce((acc, curr) => acc && curr, true),
+      managementCanceler,
+      canceler
     );
+    const combinedCancelerPromise = getMemoPromise(combinedCanceler);
+    await Promise.all([
+      tail(
+        (state: any) =>
+          this.run(combinedCanceler, combinedCancelerPromise, context, state),
+        canceler,
+        yield* this.init(...startArgs),
+        (state) => state === undefined
+      ),
+      tail(
+        () =>
+          this.runManagement(
+            managementCanceler,
+            combinedCancelerPromise,
+            context
+          ),
+        combinedCanceler,
+        null,
+        (exitValue) => exitValue === undefined
+      ),
+    ]);
   }
   public async *childSpec(): AsyncGenerator<void, ChildSpec, unknown> {
     return {
@@ -82,6 +107,21 @@ abstract class GenServer {
       return result.newState;
     }
     return undefined;
+  }
+  protected async *runManagement<U extends typeof GenServer>(
+    canceler: Generator<[boolean, EventEmitter], never, boolean>,
+    cancelerPromise: Promise<boolean>,
+    _context: U
+  ) {
+    const event = yield* take<ServerEvent>(
+      `${this[keyForIdSymbol]}_management`,
+      this[keyForCombinedSelfReadable],
+      cancelerPromise
+    );
+    if (event && event.action === "stop") {
+      putMemoValue(canceler, false);
+      return true;
+    }
   }
   static API: { [key: string]: string } = {};
   static EXTERNAL_EMITTERS_KEYS: Record<string, string> = {};

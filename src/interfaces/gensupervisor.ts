@@ -4,12 +4,21 @@ import {
   RestartStrategy,
 } from "../supervision/types";
 import { GenServer } from "./genserver";
-import { tail } from "../utils";
+import {
+  tail,
+  putMemoValue,
+  getMemoPromise,
+  combineMemos,
+  memo,
+} from "../utils";
 import { supervise } from "../supervision";
 import EventEmitter from "events";
 import { keyForCombinedSelfReadable } from "../utils/symbols";
 import { CombineEmitter } from "../transports/combine-emitter";
+import { take } from "../effects";
+import { ServerEvent } from "../events/types";
 
+// TODO : implements supervisors management calls, supervisors child registration, server management calls
 abstract class GenSupervisor extends GenServer {
   protected abstract children(): AsyncGenerator<
     unknown,
@@ -35,16 +44,37 @@ abstract class GenSupervisor extends GenServer {
       return stream;
     });
     this[keyForCombinedSelfReadable] = new CombineEmitter(combinableStreams);
-    const childSpecs = yield* this.init();
-    await tail(
-      (specs) => this.run(canceler, cancelerPromise, context, specs),
-      canceler,
-      {
-        childSpecs,
-        strategy: startArgs[0],
-      },
-      (specs) => specs.childSpecs.length === 0
+    const managementCanceler = memo(true);
+    const combinedCanceler = combineMemos(
+      (...states) => states.reduce((acc, curr) => acc && curr, true),
+      managementCanceler,
+      canceler
     );
+    const combinedCancelerPromise = getMemoPromise(combinedCanceler);
+    const childSpecs = yield* this.init();
+    await Promise.all([
+      tail(
+        (specs) =>
+          this.run(combinedCanceler, combinedCancelerPromise, context, specs),
+        canceler,
+        {
+          childSpecs,
+          strategy: startArgs[0],
+        },
+        (specs) => specs.childSpecs.length === 0
+      ),
+      tail(
+        () =>
+          this.runManagement(
+            managementCanceler,
+            combinedCancelerPromise,
+            context
+          ),
+        combinedCanceler,
+        null,
+        (exitValue) => exitValue === undefined
+      ),
+    ]);
   }
   protected async *init(): AsyncGenerator {
     const children: [
@@ -78,6 +108,23 @@ abstract class GenSupervisor extends GenServer {
   > {
     return yield* supervise(childSpecs, strategy, canceler, cancelerPromise);
   }
+  protected async *runManagement<U extends typeof GenServer>(
+    canceler: Generator<[boolean, EventEmitter], never, boolean>,
+    cancelerPromise: Promise<boolean>,
+    context: U
+  ) {
+    const event = yield* take<ServerEvent>(
+      `${context.name}_management`,
+      this[keyForCombinedSelfReadable],
+      cancelerPromise
+    );
+    if (event && event.action === "stop") {
+      putMemoValue(canceler, false);
+      return true;
+    }
+  }
+  public async *stop() {}
+  public async *stopChild(id: string) {}
   public async *childSpec(): AsyncGenerator<void, ChildSpec, unknown> {
     return {
       startArgs: [RestartStrategy.ONE_FOR_ONE],
