@@ -123,6 +123,17 @@ abstract class GenServer {
       return true;
     }
   }
+  public async *stop<U extends typeof GenServer>(
+    target: U,
+    targetId: string,
+    transport?: string
+  ) {
+    return yield* GenServer.cast<U>(
+      [target, `${targetId}_management`, transport],
+      "stop",
+      {}
+    );
+  }
   static API: { [key: string]: string } = {};
   static EXTERNAL_EMITTERS_KEYS: Record<string, string> = {};
   static async *call<

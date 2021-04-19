@@ -8,8 +8,12 @@ import EventEmitter from "events";
 import { GenSupervisor } from "./gensupervisor";
 import { take } from "../effects";
 import { supervise } from "../supervision";
-import { tail, getMemoValue } from "../utils";
-import { keyForCombinedSelfReadable } from "../utils/symbols";
+import { tail, getMemoValue, memo } from "../utils";
+import {
+  keyForCombinedSelfReadable,
+  keyForSupervisedChidren,
+  keyForIdSymbol,
+} from "../utils/symbols";
 import { ServerEvent } from "../events/types";
 
 abstract class GenDynamicSupervisor extends GenSupervisor {
@@ -33,7 +37,8 @@ abstract class GenDynamicSupervisor extends GenSupervisor {
       childSpecs: [
         typeof GenServer & (new () => GenServer),
         GenServer,
-        ChildSpec
+        ChildSpec,
+        Generator<[boolean, EventEmitter], never, boolean>
       ][];
       strategy: RestartStrategy;
     }
@@ -44,7 +49,8 @@ abstract class GenDynamicSupervisor extends GenSupervisor {
       childSpecs: [
         typeof GenServer & (new () => GenServer),
         GenServer,
-        ChildSpec
+        ChildSpec,
+        Generator<[boolean, EventEmitter], never, boolean>
       ][];
     },
     any
@@ -59,12 +65,21 @@ abstract class GenDynamicSupervisor extends GenSupervisor {
       const child: [
         typeof GenServer & (new () => GenServer),
         GenServer,
-        ChildSpec
+        ChildSpec,
+        Generator<[boolean, EventEmitter], never, boolean>
       ] = [
         res.data[0].targetChild,
         new (<any>res.data[0].targetChild)(),
         res.data[0].spec,
+        memo(true),
       ];
+      this[keyForSupervisedChidren].push({
+        id:
+          child[1] instanceof GenSupervisor
+            ? child[0].name
+            : child[1][keyForIdSymbol],
+        canceler: child[3],
+      });
       childSpecs.push(child);
       tail(
         () => supervise([child], strategy, canceler, cancelerPromise),

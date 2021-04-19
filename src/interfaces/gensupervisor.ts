@@ -13,13 +13,21 @@ import {
 } from "../utils";
 import { supervise } from "../supervision";
 import EventEmitter from "events";
-import { keyForCombinedSelfReadable } from "../utils/symbols";
+import {
+  keyForCombinedSelfReadable,
+  keyForSupervisedChidren,
+  keyForIdSymbol,
+} from "../utils/symbols";
 import { CombineEmitter } from "../transports/combine-emitter";
 import { take } from "../effects";
 import { ServerEvent } from "../events/types";
 
-// TODO : implements supervisors management calls, supervisors child registration, server management calls
+// TODO : implements application management calls, supervisors, dynsupervisors, application child registration update
 abstract class GenSupervisor extends GenServer {
+  protected [keyForSupervisedChidren]: {
+    id: string;
+    canceler: Generator<[boolean, EventEmitter], never, boolean>;
+  }[];
   protected abstract children(): AsyncGenerator<
     unknown,
     (typeof GenServer & (new () => GenServer))[],
@@ -29,7 +37,7 @@ abstract class GenSupervisor extends GenServer {
     startArgs: [RestartStrategy],
     context: U,
     canceler: Generator<[boolean, EventEmitter], never, boolean>,
-    cancelerPromise: Promise<boolean>
+    _cancelerPromise: Promise<boolean>
   ) {
     [
       context.eventEmitter,
@@ -52,6 +60,22 @@ abstract class GenSupervisor extends GenServer {
     );
     const combinedCancelerPromise = getMemoPromise(combinedCanceler);
     const childSpecs = yield* this.init();
+    this[keyForSupervisedChidren] = childSpecs.map(
+      (
+        childSpecs: [
+          typeof GenServer,
+          GenServer,
+          ChildSpec,
+          Generator<[boolean, EventEmitter], never, boolean>
+        ]
+      ) => ({
+        id:
+          childSpecs[1] instanceof GenSupervisor
+            ? childSpecs[0].name
+            : childSpecs[1][keyForIdSymbol],
+        canceler: childSpecs[3],
+      })
+    );
     await Promise.all([
       tail(
         (specs) =>
@@ -81,9 +105,14 @@ abstract class GenSupervisor extends GenServer {
       typeof GenServer,
       GenServer
     ][] = (yield* this.children()).map((Child) => [Child, new (<any>Child)()]);
-    const childSpecs: [typeof GenServer, GenServer, ChildSpec][] = [];
+    const childSpecs: [
+      typeof GenServer,
+      GenServer,
+      ChildSpec,
+      Generator<[boolean, EventEmitter], never, boolean>
+    ][] = [];
     for (const [Child, child] of children) {
-      childSpecs.push([Child, child, yield* child.childSpec()]);
+      childSpecs.push([Child, child, yield* child.childSpec(), memo(true)]);
     }
     return childSpecs;
   }
@@ -95,13 +124,23 @@ abstract class GenSupervisor extends GenServer {
       strategy,
       childSpecs,
     }: {
-      childSpecs: [typeof GenServer, GenServer, ChildSpec][];
+      childSpecs: [
+        typeof GenServer,
+        GenServer,
+        ChildSpec,
+        Generator<[boolean, EventEmitter], never, boolean>
+      ][];
       strategy: RestartStrategy;
     }
   ): AsyncGenerator<
     any,
     {
-      childSpecs: [typeof GenServer, GenServer, ChildSpec][];
+      childSpecs: [
+        typeof GenServer,
+        GenServer,
+        ChildSpec,
+        Generator<[boolean, EventEmitter], never, boolean>
+      ][];
       strategy: RestartStrategy;
     },
     undefined
@@ -122,9 +161,38 @@ abstract class GenSupervisor extends GenServer {
       putMemoValue(canceler, false);
       return true;
     }
+    if (event && event.action === "stopChild") {
+      // TODO : stop child and remove it from registration
+      return true;
+    }
+    if (event && event.action === "lookup") {
+      // TODO : return array of server id objects
+      return true;
+    }
   }
-  public async *stop() {}
-  public async *stopChild(id: string) {}
+  public async *stopChild<U extends typeof GenSupervisor>(
+    targetSupervisor: U,
+    id: string,
+    transport?: string
+  ) {
+    return yield* GenServer.cast<U>(
+      [targetSupervisor, `${targetSupervisor.name}_management`, transport],
+      "stopChild",
+      { id }
+    );
+  }
+  public async *lookup<U extends typeof GenSupervisor, V extends GenServer>(
+    targetSupervisor: U,
+    self: V,
+    transport?: string
+  ) {
+    return yield* GenServer.call<{ id: string }[], U, V, string>(
+      [targetSupervisor, `${targetSupervisor.name}_management`, transport],
+      self,
+      "lookup",
+      {}
+    );
+  }
   public async *childSpec(): AsyncGenerator<void, ChildSpec, unknown> {
     return {
       startArgs: [RestartStrategy.ONE_FOR_ONE],

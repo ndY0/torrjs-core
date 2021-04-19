@@ -50,9 +50,14 @@ class GenApplication<T extends typeof GenServer & (new () => GenServer)> {
       typeof GenServer,
       GenServer
     ][] = this.spec.supervise.map((Child) => [Child, new (<any>Child)()]);
-    const childSpecs: [typeof GenServer, GenServer, ChildSpec][] = [];
+    const childSpecs: [
+      typeof GenServer,
+      GenServer,
+      ChildSpec,
+      Generator<[boolean, EventEmitter], never, boolean>
+    ][] = [];
     for (const [Child, child] of children) {
-      childSpecs.push([Child, child, yield* child.childSpec()]);
+      childSpecs.push([Child, child, yield* child.childSpec(), memo(true)]);
     }
     return childSpecs;
   }
@@ -63,13 +68,23 @@ class GenApplication<T extends typeof GenServer & (new () => GenServer)> {
       strategy,
       childSpecs,
     }: {
-      childSpecs: [typeof GenServer, GenServer, ChildSpec][];
+      childSpecs: [
+        typeof GenServer,
+        GenServer,
+        ChildSpec,
+        Generator<[boolean, EventEmitter], never, boolean>
+      ][];
       strategy: RestartStrategy;
     }
   ): AsyncGenerator<
     any,
     {
-      childSpecs: [typeof GenServer, GenServer, ChildSpec][];
+      childSpecs: [
+        typeof GenServer,
+        GenServer,
+        ChildSpec,
+        Generator<[boolean, EventEmitter], never, boolean>
+      ][];
       strategy: RestartStrategy;
     },
     undefined
