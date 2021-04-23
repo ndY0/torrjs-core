@@ -5,7 +5,7 @@ import {
   RestartStrategy,
   ChildSpec,
 } from "../supervision/types";
-import { getMemoPromise, memo, delay } from "../utils";
+import { getMemoPromise, memo, delay, promisifyGenerator } from "../utils";
 import { Server } from "../annotations/server";
 import { InMemoryEmitter } from "../transports/in-memory-emitter";
 import { GenSupervisor } from "./gensupervisor";
@@ -41,9 +41,12 @@ class TestTemporarySupervisor extends GenSupervisor {
   }
 }
 
+@Server(new InMemoryEmitter(10), { test: new InMemoryEmitter(10) })
+class TestGenApplication extends GenApplication {}
+
 describe("GenApplication", () => {
   it("should initialize a memo canceler and the linked promise at initialisation", () => {
-    const application = new GenApplication({
+    const application = new TestGenApplication({
       childStrategy: RestartStrategy.ONE_FOR_ALL,
       supervise: [DelayNormalTemporaryServer, TestTemporarySupervisor],
     });
@@ -54,18 +57,19 @@ describe("GenApplication", () => {
   });
   describe("start", () => {
     it(`should loop supervised children with provided strategy --- ONE_FOR_ALL and stop when stop is called`, async () => {
-      const application = new GenApplication({
+      const application = new TestGenApplication({
         childStrategy: RestartStrategy.ONE_FOR_ALL,
         supervise: [DelayNormalTemporaryServer, TestTemporarySupervisor],
       });
 
       const initSpy = jest.spyOn(<any>application, "init");
       const runSpy = jest.spyOn(<any>application, "run");
-      const res = await Promise.all([
-        application.start(),
+      await Promise.all([
+        application.start(TestGenApplication),
         (async (app) => {
           await delay(2000);
-          await app.stop();
+          await TestGenApplication.stop(TestGenApplication);
+          await delay(2000);
         })(application),
       ]);
       expect(initSpy).toHaveBeenCalledTimes(1);
@@ -74,18 +78,19 @@ describe("GenApplication", () => {
       await delay(1000);
     });
     it(`should loop supervised children with provided strategy --- ONE_FOR_ONE and stop when stop is called`, async () => {
-      const application = new GenApplication({
+      const application = new TestGenApplication({
         childStrategy: RestartStrategy.ONE_FOR_ONE,
         supervise: [DelayNormalTemporaryServer, TestTemporarySupervisor],
       });
 
       const initSpy = jest.spyOn(<any>application, "init");
       const runSpy = jest.spyOn(<any>application, "run");
-      const res = await Promise.all([
-        application.start(),
+      await Promise.all([
+        application.start(TestGenApplication),
         (async (app) => {
           await delay(2000);
-          await app.stop();
+          await TestGenApplication.stop(TestGenApplication);
+          await delay(2000);
         })(application),
       ]);
       expect(initSpy).toHaveBeenCalledTimes(1);
@@ -93,5 +98,127 @@ describe("GenApplication", () => {
       expect(runSpy).toHaveBeenCalledTimes(1);
       await delay(1000);
     });
+  });
+  describe("stop", () => {
+    it("should send a stop signal to the application management loop", async () => {
+      const application = new TestGenApplication({
+        childStrategy: RestartStrategy.ONE_FOR_ONE,
+        supervise: [DelayNormalTemporaryServer, TestTemporarySupervisor],
+      });
+      const res = await Promise.all([
+        application.start(TestGenApplication),
+        (async () => {
+          await delay(1000);
+          TestGenApplication.stop(TestGenApplication);
+        })(),
+      ]);
+      expect(res[0]).toBeUndefined();
+    });
+  });
+  describe("lookup", () => {
+    it("should return the supervised children of the application", async () => {
+      const application = new TestGenApplication({
+        childStrategy: RestartStrategy.ONE_FOR_ONE,
+        supervise: [DelayNormalTemporaryServer, TestTemporarySupervisor],
+      });
+      const testServer = new DelayNormalTemporaryServer();
+      const res = await Promise.all([
+        application.start(TestGenApplication),
+        (async () => {
+          await delay(1000);
+          const children = await TestGenApplication.lookup(
+            TestGenApplication,
+            testServer
+          );
+          expect(children).toHaveLength(1);
+          TestGenApplication.stop(TestGenApplication);
+        })(),
+      ]);
+      expect(res[0]).toBeUndefined();
+    });
+  });
+  describe("stopChild", () => {
+    it("should stop the application child, given its server id", async () => {
+      const application = new TestGenApplication({
+        childStrategy: RestartStrategy.ONE_FOR_ONE,
+        supervise: [DelayNormalTemporaryServer, TestTemporarySupervisor],
+      });
+      const testServer = new DelayNormalTemporaryServer();
+      const res = await Promise.all([
+        application.start(TestGenApplication),
+        (async () => {
+          await delay(1000);
+          const children = await TestGenApplication.lookup(
+            TestGenApplication,
+            testServer
+          );
+          expect(children).toHaveLength(1);
+          TestGenApplication.stopChild(TestGenApplication, children[0]);
+          await delay(200);
+          const children2 = await TestGenApplication.lookup(
+            TestGenApplication,
+            testServer,
+            "test"
+          );
+          expect(children2).toHaveLength(0);
+          TestGenApplication.stop(TestGenApplication);
+        })(),
+      ]);
+      expect(res[0]).toBeUndefined();
+    });
+    it("should do nothing if the server id is not one of supervised", async () => {
+      const application = new TestGenApplication({
+        childStrategy: RestartStrategy.ONE_FOR_ONE,
+        supervise: [DelayNormalTemporaryServer, TestTemporarySupervisor],
+      });
+      const testServer = new DelayNormalTemporaryServer();
+      const res = await Promise.all([
+        application.start(TestGenApplication),
+        (async () => {
+          await delay(1000);
+          const children = await TestGenApplication.lookup(
+            TestGenApplication,
+            testServer
+          );
+          expect(children).toHaveLength(1);
+          TestGenApplication.stopChild(TestGenApplication, "invalid");
+          await delay(200);
+          const children2 = await TestGenApplication.lookup(
+            TestGenApplication,
+            testServer,
+            "test"
+          );
+          expect(children2).toHaveLength(1);
+          TestGenApplication.stop(TestGenApplication);
+        })(),
+      ]);
+      expect(res[0]).toBeUndefined();
+    });
+  });
+  it("should do nothing if provided event for management loop is not recognised", async () => {
+    const application = new TestGenApplication({
+      childStrategy: RestartStrategy.ONE_FOR_ONE,
+      supervise: [DelayNormalTemporaryServer, TestTemporarySupervisor],
+    });
+    const res = await Promise.all([
+      application.start(TestGenApplication),
+      (async () => {
+        await delay(1000);
+        await promisifyGenerator(
+          GenServer.cast<typeof GenServer>(
+            [
+              <any>TestGenApplication,
+              `${TestGenApplication.name}_management`,
+              undefined,
+            ],
+            "internal",
+            {}
+          )
+        );
+        await delay(1000);
+        TestGenApplication.stop(TestGenApplication);
+      })(),
+    ]);
+    expect(res[0]).toBeUndefined();
   });
 });

@@ -69,6 +69,7 @@ describe("GenRegistry", () => {
             expect.anything(),
             expect.anything(),
             expect.anything(),
+            [],
             new Map()
           );
           await GenRegistry.register(
@@ -84,6 +85,7 @@ describe("GenRegistry", () => {
             expect.anything(),
             expect.anything(),
             expect.anything(),
+            [],
             secondeCallArg
           );
           await GenRegistry.register(
@@ -102,6 +104,7 @@ describe("GenRegistry", () => {
             expect.anything(),
             expect.anything(),
             expect.anything(),
+            [],
             secondeCallArg
           );
           putMemoValue(canceler, false);
@@ -158,7 +161,28 @@ describe("GenRegistry", () => {
             5_000
           ).next();
           expect(dataEmpty.value).toEqual([]);
+          await delay(200);
           putMemoValue(canceler, false);
+        })(),
+      ]);
+      expect(res[0].done).toBeTruthy();
+    });
+  });
+  describe("stop", () => {
+    it("should send stop event to the management loop, and trigger the canceler memo for the server", async () => {
+      const testDecoratedClient = new TestGenRegistry();
+      const canceler = memo(true);
+      const cancelerPromise = getMemoPromise(canceler);
+      const res = await Promise.all([
+        testDecoratedClient
+          .start([], TestGenRegistry, canceler, cancelerPromise)
+          .next(),
+        (async () => {
+          await delay(1_000);
+          await TestGenRegistry.stop(
+            TestGenRegistry,
+            TestGenRegistry.name
+          ).next();
         })(),
       ]);
       expect(res[0].done).toBeTruthy();

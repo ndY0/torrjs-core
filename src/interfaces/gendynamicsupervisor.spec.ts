@@ -10,6 +10,7 @@ import {
 import { memo, getMemoPromise, delay, putMemoValue } from "../utils";
 import { GenServer } from "./genserver";
 import EventEmitter from "events";
+import { GenSupervisor } from "./gensupervisor";
 
 class DelayNormalTemporaryServer extends GenServer {
   protected async *init(
@@ -34,7 +35,11 @@ class DelayNormalTemporaryServer extends GenServer {
 }
 
 @Server(new InMemoryEmitter(10), { test: new InMemoryEmitter(10) })
-class TestDynamicSupervisor extends GenDynamicSupervisor {}
+class TestDynamicSupervisor extends GenDynamicSupervisor {
+  protected async *children() {
+    return [DelayNormalTemporaryServer];
+  }
+}
 
 describe("GenDynamicSupervisor", () => {
   describe("childSpec", () => {
@@ -52,7 +57,7 @@ describe("GenDynamicSupervisor", () => {
       const supervisor = new TestDynamicSupervisor();
       const children = Reflect.get(supervisor, "children");
       const list = await children().next();
-      expect(list.value).toEqual([]);
+      expect(list.value).toBeInstanceOf(Array);
     });
   });
   describe("start", () => {
@@ -81,7 +86,7 @@ describe("GenDynamicSupervisor", () => {
     });
   });
   describe("startChild", () => {
-    it("should start a new supervised child, looping supervisor run loop for one iteration", async () => {
+    it("should start a new supervised child or supervisor child, looping supervisor run loop for one iteration", async () => {
       const supervisor = new TestDynamicSupervisor();
       const canceler = memo(true);
       const cancelerPromise = getMemoPromise(canceler);

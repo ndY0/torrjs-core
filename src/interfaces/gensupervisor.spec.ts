@@ -63,6 +63,17 @@ class TestPermanentSupervisor extends GenSupervisor {
 }
 
 @Server(new InMemoryEmitter(10), { test: new InMemoryEmitter(10) })
+class TestNestedPermanentSupervisor extends GenSupervisor {
+  protected async *children() {
+    return [
+      DelayNormalPermanentServer,
+      DelayNormalPermanentServer,
+      TestPermanentSupervisor,
+    ];
+  }
+}
+
+@Server(new InMemoryEmitter(10), { test: new InMemoryEmitter(10) })
 class TestTemporarySupervisor extends GenSupervisor {
   protected async *children() {
     return [DelayNormalTemporaryServer, DelayNormalTemporaryServer];
@@ -139,6 +150,317 @@ describe("GenSupervisor", () => {
         )
         .next();
       expect(test.done).toBeTruthy();
+    });
+  });
+  describe("stopChild", () => {
+    it("should stop a running children, refreshing the state in next iteration in ONE_FOR_ALL strategy", async () => {
+      const canceler = memo(true);
+      const cancelerPromise = getMemoPromise(canceler);
+      const supervisor = new TestPermanentSupervisor();
+      await Promise.all([
+        supervisor
+          .start(
+            [RestartStrategy.ONE_FOR_ALL],
+            TestPermanentSupervisor,
+            canceler,
+            cancelerPromise
+          )
+          .next(),
+        (async () => {
+          await delay(1_000);
+          const children = await TestPermanentSupervisor.lookup(
+            TestPermanentSupervisor,
+            supervisor
+          ).next();
+          expect(children.value).toHaveLength(2);
+          const childId = children.value ? children.value[0] : "2";
+          await TestPermanentSupervisor.stopChild(
+            TestPermanentSupervisor,
+            childId
+          ).next();
+          await delay(500);
+          const children2 = await TestPermanentSupervisor.lookup(
+            TestPermanentSupervisor,
+            supervisor
+          ).next();
+          expect(children2.value).toHaveLength(1);
+          await TestPermanentSupervisor.stop(
+            TestPermanentSupervisor,
+            TestPermanentSupervisor.name
+          ).next();
+          await delay(200);
+        })(),
+      ]);
+    });
+    it("should stop a running children, refreshing the state in next iteration in ONE_FOR_ONE strategy", async () => {
+      const canceler = memo(true);
+      const cancelerPromise = getMemoPromise(canceler);
+      const supervisor = new TestPermanentSupervisor();
+      await Promise.all([
+        supervisor
+          .start(
+            [RestartStrategy.ONE_FOR_ONE],
+            TestPermanentSupervisor,
+            canceler,
+            cancelerPromise
+          )
+          .next(),
+        (async () => {
+          await delay(1_000);
+          const children = await TestPermanentSupervisor.lookup(
+            TestPermanentSupervisor,
+            supervisor
+          ).next();
+          expect(children.value).toHaveLength(2);
+          const childId = children.value ? children.value[0] : "2";
+          await TestPermanentSupervisor.stopChild(
+            TestPermanentSupervisor,
+            childId
+          ).next();
+          await delay(500);
+          const children2 = await TestPermanentSupervisor.lookup(
+            TestPermanentSupervisor,
+            supervisor
+          ).next();
+          expect(children2.value).toHaveLength(1);
+          await TestPermanentSupervisor.stop(
+            TestPermanentSupervisor,
+            TestPermanentSupervisor.name
+          ).next();
+          await delay(200);
+        })(),
+      ]);
+    });
+    it("should stop a running supervisor and it's running children, refreshing the state in next iteration in ONE_FOR_ALL strategy", async () => {
+      const canceler = memo(true);
+      const cancelerPromise = getMemoPromise(canceler);
+      const supervisor = new TestNestedPermanentSupervisor();
+      await Promise.all([
+        supervisor
+          .start(
+            [RestartStrategy.ONE_FOR_ALL],
+            TestNestedPermanentSupervisor,
+            canceler,
+            cancelerPromise
+          )
+          .next(),
+        (async () => {
+          await delay(1_000);
+          const children = await TestNestedPermanentSupervisor.lookup(
+            TestNestedPermanentSupervisor,
+            supervisor
+          ).next();
+          expect(children.value).toHaveLength(3);
+          await TestNestedPermanentSupervisor.stopChild(
+            TestNestedPermanentSupervisor,
+            "TestPermanentSupervisor"
+          ).next();
+          await delay(500);
+          const children2 = await TestNestedPermanentSupervisor.lookup(
+            TestNestedPermanentSupervisor,
+            supervisor
+          ).next();
+          expect(children2.value).toHaveLength(2);
+          await TestNestedPermanentSupervisor.stop(
+            TestNestedPermanentSupervisor,
+            TestNestedPermanentSupervisor.name
+          ).next();
+          await delay(200);
+        })(),
+      ]);
+    });
+    it("should stop a running supervisor and it's running children, refreshing the state in next iteration in ONE_FOR_ONE strategy", async () => {
+      const canceler = memo(true);
+      const cancelerPromise = getMemoPromise(canceler);
+      const supervisor = new TestNestedPermanentSupervisor();
+      await Promise.all([
+        supervisor
+          .start(
+            [RestartStrategy.ONE_FOR_ONE],
+            TestNestedPermanentSupervisor,
+            canceler,
+            cancelerPromise
+          )
+          .next(),
+        (async () => {
+          await delay(1_000);
+          const children = await TestNestedPermanentSupervisor.lookup(
+            TestNestedPermanentSupervisor,
+            supervisor
+          ).next();
+          expect(children.value).toHaveLength(3);
+          await TestNestedPermanentSupervisor.stopChild(
+            TestNestedPermanentSupervisor,
+            "TestPermanentSupervisor"
+          ).next();
+          await delay(500);
+          const children2 = await TestNestedPermanentSupervisor.lookup(
+            TestNestedPermanentSupervisor,
+            supervisor
+          ).next();
+          expect(children2.value).toHaveLength(2);
+          await TestNestedPermanentSupervisor.stop(
+            TestNestedPermanentSupervisor,
+            TestNestedPermanentSupervisor.name
+          ).next();
+          await delay(200);
+        })(),
+      ]);
+    });
+    it("should do nothing if provided children isn't managed by the supervisor", async () => {
+      const canceler = memo(true);
+      const cancelerPromise = getMemoPromise(canceler);
+      const supervisor = new TestPermanentSupervisor();
+      await Promise.all([
+        supervisor
+          .start(
+            [RestartStrategy.ONE_FOR_ONE],
+            TestPermanentSupervisor,
+            canceler,
+            cancelerPromise
+          )
+          .next(),
+        (async () => {
+          await delay(1_000);
+          const children = await TestPermanentSupervisor.lookup(
+            TestPermanentSupervisor,
+            supervisor
+          ).next();
+          expect(children.value).toHaveLength(2);
+          const childId = "invalid";
+          await TestPermanentSupervisor.stopChild(
+            TestPermanentSupervisor,
+            childId
+          ).next();
+          await delay(500);
+          const children2 = await TestPermanentSupervisor.lookup(
+            TestPermanentSupervisor,
+            supervisor
+          ).next();
+          expect(children2.value).toHaveLength(2);
+          await TestPermanentSupervisor.stop(
+            TestPermanentSupervisor,
+            TestPermanentSupervisor.name
+          ).next();
+          await delay(200);
+        })(),
+      ]);
+    });
+  });
+  describe("lookup", () => {
+    it("should return the running managed children, using internal transport", async () => {
+      const canceler = memo(true);
+      const cancelerPromise = getMemoPromise(canceler);
+      const supervisor = new TestPermanentSupervisor();
+      await Promise.all([
+        supervisor
+          .start(
+            [RestartStrategy.ONE_FOR_ALL],
+            TestPermanentSupervisor,
+            canceler,
+            cancelerPromise
+          )
+          .next(),
+        (async () => {
+          await delay(1_000);
+          const children = await TestPermanentSupervisor.lookup(
+            TestPermanentSupervisor,
+            supervisor
+          ).next();
+          expect(children.value).toHaveLength(2);
+          await TestPermanentSupervisor.stop(
+            TestPermanentSupervisor,
+            TestPermanentSupervisor.name
+          ).next();
+          await delay(200);
+        })(),
+      ]);
+    });
+    it("should return the running managed children, using external transport", async () => {
+      const canceler = memo(true);
+      const cancelerPromise = getMemoPromise(canceler);
+      const supervisor = new TestPermanentSupervisor();
+      await Promise.all([
+        supervisor
+          .start(
+            [RestartStrategy.ONE_FOR_ALL],
+            TestPermanentSupervisor,
+            canceler,
+            cancelerPromise
+          )
+          .next(),
+        (async () => {
+          await delay(1_000);
+          const children = await TestPermanentSupervisor.lookup(
+            TestPermanentSupervisor,
+            supervisor,
+            "test"
+          ).next();
+          expect(children.value).toHaveLength(2);
+          await TestPermanentSupervisor.stop(
+            TestPermanentSupervisor,
+            TestPermanentSupervisor.name
+          ).next();
+          await delay(200);
+        })(),
+      ]);
+    });
+    it("if one of the childs is a supervisor, the class name should be returned as child id", async () => {
+      const canceler = memo(true);
+      const cancelerPromise = getMemoPromise(canceler);
+      const supervisor = new TestNestedPermanentSupervisor();
+      await Promise.all([
+        supervisor
+          .start(
+            [RestartStrategy.ONE_FOR_ALL],
+            TestNestedPermanentSupervisor,
+            canceler,
+            cancelerPromise
+          )
+          .next(),
+        (async () => {
+          await delay(1_000);
+          const children = await TestNestedPermanentSupervisor.lookup(
+            TestNestedPermanentSupervisor,
+            supervisor
+          ).next();
+          expect(
+            (children.value ? children.value : []).includes(
+              "TestPermanentSupervisor"
+            )
+          ).toBeTruthy();
+          await TestNestedPermanentSupervisor.stop(
+            TestNestedPermanentSupervisor,
+            TestNestedPermanentSupervisor.name
+          ).next();
+          await delay(200);
+        })(),
+      ]);
+    });
+  });
+  describe("stop", () => {
+    it("should send a stop event to the management loop, and stop the supervisor and it's children", async () => {
+      const canceler = memo(true);
+      const cancelerPromise = getMemoPromise(canceler);
+      const supervisor = new TestPermanentSupervisor();
+      const res = await Promise.all([
+        supervisor
+          .start(
+            [RestartStrategy.ONE_FOR_ALL],
+            TestPermanentSupervisor,
+            canceler,
+            cancelerPromise
+          )
+          .next(),
+        (async () => {
+          await delay(1_000);
+          await TestPermanentSupervisor.stop(
+            TestPermanentSupervisor,
+            TestPermanentSupervisor.name
+          ).next();
+        })(),
+      ]);
+      expect(res[0].done).toBeTruthy();
     });
   });
 });

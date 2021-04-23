@@ -9,17 +9,10 @@ import { GenSupervisor } from "./gensupervisor";
 import { take } from "../effects";
 import { supervise } from "../supervision";
 import { tail, getMemoValue, memo } from "../utils";
-import {
-  keyForCombinedSelfReadable,
-  keyForSupervisedChidren,
-  keyForIdSymbol,
-} from "../utils/symbols";
+import { keyForCombinedSelfReadable, keyForIdSymbol } from "../utils/symbols";
 import { ServerEvent } from "../events/types";
 
 abstract class GenDynamicSupervisor extends GenSupervisor {
-  protected async *children() {
-    return [];
-  }
   protected async *init(): AsyncGenerator {
     return [];
   }
@@ -62,26 +55,26 @@ abstract class GenDynamicSupervisor extends GenSupervisor {
     const res = yield* take<
       ServerEvent<{
         spec: ChildSpec;
-        targetChild: V;
+        targetChild: string;
       }>
     >(context.name, this[keyForCombinedSelfReadable], cancelerPromise);
     if (getMemoValue(canceler)) {
+      const supportedChildren = yield* this.children();
+      const childClass = <V & (new () => GenServer)>(
+        (<any>(
+          supportedChildren.find(
+            (child) => (<any>child).name === res.data[0].targetChild
+          )
+        ))
+      );
       const child: [
         typeof GenServer & (new () => GenServer),
         GenServer,
         ChildSpec,
         Generator<[boolean, EventEmitter], never, boolean>
-      ] = [
-        res.data[0].targetChild,
-        new (<any>res.data[0].targetChild)(),
-        res.data[0].spec,
-        memo(true),
-      ];
+      ] = [childClass, new (<any>childClass)(), res.data[0].spec, memo(true)];
       supervised.push({
-        id:
-          child[1] instanceof GenSupervisor
-            ? child[0].name
-            : child[1][keyForIdSymbol],
+        id: child[1][keyForIdSymbol],
         canceler: child[3],
       });
       childSpecs.push(child);
@@ -117,11 +110,16 @@ abstract class GenDynamicSupervisor extends GenSupervisor {
   public static async *startChild<
     U extends typeof GenDynamicSupervisor,
     V extends typeof GenServer & (new () => GenServer)
-  >(targetSupervisor: U, targetChild: V, spec: ChildSpec, transport?: string) {
+  >(
+    targetSupervisor: U,
+    targetChild: V & (V extends typeof GenSupervisor ? never : V),
+    spec: ChildSpec,
+    transport?: string
+  ) {
     yield* GenServer.cast<U>(
       [targetSupervisor, targetSupervisor.name, transport],
       "startChild",
-      { spec, targetChild }
+      { spec, targetChild: targetChild.name }
     );
   }
 }

@@ -2,7 +2,10 @@ import { GenServer } from "./genserver";
 import EventEmitter from "events";
 import { take } from "../effects";
 import { RegistryAction, ServerEvent } from "../events/types";
-import { keyForCombinedSelfReadable } from "../utils/symbols";
+import {
+  keyForCombinedSelfReadable,
+  keyForCombinedAdministrationSelfReadable,
+} from "../utils/symbols";
 import { CombineEmitter } from "../transports/combine-emitter";
 import {
   tail,
@@ -35,7 +38,18 @@ abstract class GenRegistry extends GenServer {
       emitter.setStream(context.name, stream);
       return stream;
     });
+    const combinableAdministrationStreams = [
+      context.eventEmitter,
+      ...context.externalEventEmitters.values(),
+    ].map((emitter) => {
+      const administrationStream = new (emitter.getInternalStreamType())();
+      emitter.setStream(`${context.name}_management`, administrationStream);
+      return administrationStream;
+    });
     this[keyForCombinedSelfReadable] = new CombineEmitter(combinableStreams);
+    this[keyForCombinedAdministrationSelfReadable] = new CombineEmitter(
+      combinableAdministrationStreams
+    );
     const managementCanceler = memo(true);
     const combinedCanceler = combineMemos(
       (...states) => states.reduce((acc, curr) => acc && curr, true),
@@ -56,7 +70,7 @@ abstract class GenRegistry extends GenServer {
         canceler,
         yield* this.init(),
         (state) => state === undefined
-      ),
+      ).then((value) => (putMemoValue(combinedCanceler, false), value)),
       tail(
         () =>
           this.runManagement(
@@ -118,7 +132,7 @@ abstract class GenRegistry extends GenServer {
   ) {
     const event = yield* take<ServerEvent>(
       `${context.name}_management`,
-      this[keyForCombinedSelfReadable],
+      this[keyForCombinedAdministrationSelfReadable],
       cancelerPromise
     );
     if (event && event.action === "stop") {

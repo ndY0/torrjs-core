@@ -212,6 +212,7 @@ describe("GenServer", () => {
           await TestDecoratedGenServer.testCast(serverId, {
             test: "test",
           }).next();
+          await delay(200);
           await TestDecoratedGenServer.testCast(serverId, {
             test: "test",
           }).next();
@@ -287,6 +288,7 @@ describe("GenServer", () => {
           await TestDecoratedGenServer.testCast(serverId, {
             test: "test",
           }).next();
+          await delay(200);
           await TestDecoratedGenServer.testCast(serverId, {
             test: "test",
           }).next();
@@ -381,12 +383,15 @@ describe("GenServer", () => {
       const res = await Promise.all([
         startGenerator.next(),
         (async () => {
+          await delay(200);
           await TestDecoratedExternalGenServer.testCast(serverId, {
             test: "test",
           }).next();
+          await delay(200);
           await TestDecoratedExternalGenServer.testCastExternal(serverId, {
             test: "test",
           }).next();
+          await delay(200);
           const res1 = await TestDecoratedExternalGenServer.testCall(
             serverId,
             testDecoratedClient
@@ -414,6 +419,26 @@ describe("GenServer", () => {
         first: { test: "test" },
         second: { test: "test" },
       });
+    });
+  });
+  describe("stop", () => {
+    it("should send stop event to the management loop, and trigger the canceler memo for the server", async () => {
+      const testDecoratedClient = new TestDecoratedGenServer();
+      const canceler = memo(true);
+      const cancelerPromise = getMemoPromise(canceler);
+      const res = await Promise.all([
+        testDecoratedClient
+          .start([], TestDecoratedGenServer, canceler, cancelerPromise)
+          .next(),
+        (async () => {
+          await delay(1_000);
+          await TestDecoratedGenServer.stop(
+            TestDecoratedGenServer,
+            testDecoratedClient[keyForIdSymbol]
+          ).next();
+        })(),
+      ]);
+      expect(res[0].done).toBeTruthy();
     });
   });
 });

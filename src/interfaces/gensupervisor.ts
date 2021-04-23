@@ -17,6 +17,7 @@ import {
   keyForCombinedSelfReadable,
   keyForSupervisedChidren,
   keyForIdSymbol,
+  keyForCombinedAdministrationSelfReadable,
 } from "../utils/symbols";
 import { CombineEmitter } from "../transports/combine-emitter";
 import { take } from "../effects";
@@ -52,7 +53,18 @@ abstract class GenSupervisor extends GenServer {
       emitter.setStream(context.name, stream);
       return stream;
     });
+    const combinableAdministrationStreams = [
+      context.eventEmitter,
+      ...context.externalEventEmitters.values(),
+    ].map((emitter) => {
+      const administrationStream = new (emitter.getInternalStreamType())();
+      emitter.setStream(`${context.name}_management`, administrationStream);
+      return administrationStream;
+    });
     this[keyForCombinedSelfReadable] = new CombineEmitter(combinableStreams);
+    this[keyForCombinedAdministrationSelfReadable] = new CombineEmitter(
+      combinableAdministrationStreams
+    );
     const managementCanceler = memo(true);
     const combinedCanceler = combineMemos(
       (...states) => states.reduce((acc, curr) => acc && curr, true),
@@ -93,7 +105,7 @@ abstract class GenSupervisor extends GenServer {
           strategy: startArgs[0],
         },
         (specs) => specs.childSpecs.length === 0
-      ),
+      ).then((value) => (putMemoValue(managementCanceler, false), value)),
       tail(
         () =>
           this.runManagement(
@@ -171,7 +183,7 @@ abstract class GenSupervisor extends GenServer {
   ) {
     const event = yield* take<ServerEvent>(
       `${context.name}_management`,
-      this[keyForCombinedSelfReadable],
+      this[keyForCombinedAdministrationSelfReadable],
       cancelerPromise
     );
     if (event && event.action === "stop") {
@@ -190,22 +202,20 @@ abstract class GenSupervisor extends GenServer {
       }
       return true;
     }
-    if (event && event.action === "lookup") {
-      if (event.caller) {
-        (event.transport === "internal"
-          ? context.eventEmitter
-          : <TransportEmitter>context.externalEventEmitters.get(event.transport)
-        ).emit(
-          { event: event.caller },
-          this[keyForSupervisedChidren]
-            .map(({ id }) => id)
-            .filter((id) => id !== null)
-        );
-      }
+    if (event && event.caller && event.action === "lookup") {
+      (event.transport === "internal"
+        ? context.eventEmitter
+        : <TransportEmitter>context.externalEventEmitters.get(event.transport)
+      ).emit(
+        { event: event.caller },
+        this[keyForSupervisedChidren]
+          .map(({ id }) => id)
+          .filter((id) => id !== null)
+      );
       return true;
     }
   }
-  public async *stopChild<U extends typeof GenSupervisor>(
+  public static async *stopChild<U extends typeof GenSupervisor>(
     targetSupervisor: U,
     id: string,
     transport?: string
@@ -216,12 +226,11 @@ abstract class GenSupervisor extends GenServer {
       { id }
     );
   }
-  public async *lookup<U extends typeof GenSupervisor, V extends GenServer>(
-    targetSupervisor: U,
-    self: V,
-    transport?: string
-  ) {
-    return yield* GenServer.call<{ id: string }[], U, V, string>(
+  public static async *lookup<
+    U extends typeof GenSupervisor,
+    V extends GenServer
+  >(targetSupervisor: U, self: V, transport?: string) {
+    return yield* GenServer.call<string[], U, V, string>(
       [targetSupervisor, `${targetSupervisor.name}_management`, transport],
       self,
       "lookup",

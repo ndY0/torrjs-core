@@ -124,6 +124,7 @@ function memo<T>(initialState: T): Generator<[T, EventEmitter], never, T> {
   ): Generator<[T, EventEmitter], never, T> {
     let state: T = initialState;
     const emitter = new EventEmitter();
+    emitter.setMaxListeners(Math.pow(2, 32) / 2 - 1);
     while (true) {
       const passed = yield [state, emitter];
       if (passed !== undefined) {
@@ -137,12 +138,23 @@ function memo<T>(initialState: T): Generator<[T, EventEmitter], never, T> {
 }
 
 async function promisifyAsyncGenerator<T>(
-  generator: AsyncGenerator<T, T, unknown>
+  generator: AsyncGenerator<any, T, unknown>
 ) {
   let isDone;
   let result: T;
   do {
     const { done, value } = await generator.next();
+    isDone = done;
+    result = value;
+  } while (!isDone);
+  return result;
+}
+
+async function promisifyGenerator<T>(generator: Generator<T, T, unknown>) {
+  let isDone;
+  let result: T;
+  do {
+    const { done, value } = generator.next();
     isDone = done;
     result = value;
   } while (!isDone);
@@ -203,6 +215,7 @@ export {
   getMemoValue,
   putMemoValue,
   promisifyAsyncGenerator,
+  promisifyGenerator,
   loopWorker,
   delay,
   mutateArray,

@@ -187,6 +187,7 @@ describe("supervise", () => {
       value[0],
       value[1],
       <ChildSpec>(await (<GenServer>value[1]).childSpec().next()).value,
+      memo(true),
     ]);
     const resolvedChildren = <any>await Promise.all(children);
     const startSpies = resolvedChildren.map((child: any) =>
@@ -238,6 +239,7 @@ describe("supervise", () => {
       value[0],
       value[1],
       <ChildSpec>(await (<GenServer>value[1]).childSpec().next()).value,
+      memo(true),
     ]);
     const resolvedChildren = <any>await Promise.all(children);
     const startSpies = resolvedChildren.map((child: any) =>
@@ -287,6 +289,7 @@ describe("supervise", () => {
       value[0],
       value[1],
       <ChildSpec>(await (<GenServer>value[1]).childSpec().next()).value,
+      memo(true),
     ]);
     const resolvedChildren = <any>await Promise.all(children);
     const startSpies = resolvedChildren.map((child: any) =>
@@ -340,6 +343,7 @@ describe("supervise", () => {
       value[0],
       value[1],
       <ChildSpec>(await (<GenServer>value[1]).childSpec().next()).value,
+      memo(true),
     ]);
     const resolvedChildren = <any>await Promise.all(children);
     const startSpies = resolvedChildren.map((child: any) =>
@@ -403,6 +407,7 @@ describe("supervise", () => {
       value[0],
       value[1],
       <ChildSpec>(await (<GenServer>value[1]).childSpec().next()).value,
+      memo(true),
     ]);
     const resolvedChildren = <any>await Promise.all(children);
     const startSpies = resolvedChildren.map((child: any) =>
@@ -473,6 +478,7 @@ describe("supervise", () => {
       value[0],
       value[1],
       <ChildSpec>(await (<GenServer>value[1]).childSpec().next()).value,
+      memo(true),
     ]);
     const resolvedChildren = <any>await Promise.all(children);
     const supervised = resolvedChildren.map(

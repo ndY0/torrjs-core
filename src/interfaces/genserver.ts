@@ -1,10 +1,11 @@
 import { v1 } from "uuid";
-import { call, cast, take, run } from "../effects";
+import { call, cast, take } from "../effects";
 import { ServerEvent, ServerReply, ReplyTypes } from "../events/types";
 import {
   keyForIdSymbol,
   keyForMapSymbol,
   keyForCombinedSelfReadable,
+  keyForCombinedAdministrationSelfReadable,
 } from "../utils/symbols";
 import { ChildSpec, ChildRestartStrategy } from "../supervision/types";
 import {
@@ -22,7 +23,8 @@ abstract class GenServer {
   [keyForIdSymbol]: string = v1();
   static eventEmitter: TransportEmitter;
   static externalEventEmitters: Map<string, TransportEmitter>;
-  private [keyForCombinedSelfReadable]: CombineEmitter;
+  protected [keyForCombinedSelfReadable]: CombineEmitter;
+  protected [keyForCombinedAdministrationSelfReadable]: CombineEmitter;
   [key: string]: (...args: any[]) => AsyncGenerator;
   static [keyForMapSymbol]: Map<string, string> = new Map<string, string>();
   protected abstract init(...args: unknown[]): AsyncGenerator;
@@ -30,7 +32,7 @@ abstract class GenServer {
     startArgs: any[],
     context: U,
     canceler: Generator<[boolean, EventEmitter], never, boolean>,
-    cancelerPromise: Promise<boolean>
+    _cancelerPromise: Promise<boolean>
   ) {
     [
       context.eventEmitter,
@@ -44,7 +46,21 @@ abstract class GenServer {
       emitter.setStream(this[keyForIdSymbol], stream);
       return stream;
     });
+    const combinableAdministrationStreams = [
+      context.eventEmitter,
+      ...context.externalEventEmitters.values(),
+    ].map((emitter) => {
+      const administrationStream = new (emitter.getInternalStreamType())();
+      emitter.setStream(
+        `${this[keyForIdSymbol]}_management`,
+        administrationStream
+      );
+      return administrationStream;
+    });
     this[keyForCombinedSelfReadable] = new CombineEmitter(combinableStreams);
+    this[keyForCombinedAdministrationSelfReadable] = new CombineEmitter(
+      combinableAdministrationStreams
+    );
     const managementCanceler = memo(true);
     const combinedCanceler = combineMemos(
       (...states) => states.reduce((acc, curr) => acc && curr, true),
@@ -65,7 +81,7 @@ abstract class GenServer {
         canceler,
         yield* this.init(...startArgs),
         (state) => state === undefined
-      ),
+      ).then((value) => (putMemoValue(combinedCanceler, false), value)),
       tail(
         () =>
           this.runManagement(
@@ -125,7 +141,7 @@ abstract class GenServer {
   ) {
     const event = yield* take<ServerEvent>(
       `${this[keyForIdSymbol]}_management`,
-      this[keyForCombinedSelfReadable],
+      this[keyForCombinedAdministrationSelfReadable],
       cancelerPromise
     );
     if (event && event.action === "stop") {
@@ -133,7 +149,7 @@ abstract class GenServer {
       return true;
     }
   }
-  public async *stop<U extends typeof GenServer>(
+  public static async *stop<U extends typeof GenServer>(
     target: U,
     targetId: string,
     transport?: string
