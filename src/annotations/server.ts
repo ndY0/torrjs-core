@@ -2,6 +2,7 @@ import "reflect-metadata";
 import { TransportEmitter } from "../transports/interface";
 import { GenServer } from "../interfaces/genserver";
 import { keyForMapSymbol, keyForMetadataMapSymbol } from "../utils/symbols";
+import { GenApplication } from "../interfaces/genapplication";
 
 function Server(
   transport: TransportEmitter,
@@ -9,7 +10,9 @@ function Server(
     internal?: never;
   }
 ) {
-  return <T extends typeof GenServer>(constructor: T) => {
+  return <T extends typeof GenServer, U extends typeof GenApplication>(
+    constructor: T | U
+  ) => {
     const map: Map<string, string> =
       Reflect.getOwnMetadata(keyForMetadataMapSymbol, constructor.prototype) ||
       new Map();

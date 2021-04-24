@@ -82,7 +82,7 @@ describe("CombineEmitter", () => {
         (async () => {
           const testStream = stream?.value;
           const spyRead = jest.spyOn(testStream, "read");
-          await putMemoValue(canceler, false);
+          putMemoValue(canceler, false);
           stream2.write([{ event: "test" }]);
           await new Promise<void>((resolve) =>
             setTimeout(() => {

@@ -16,9 +16,9 @@ type ChildSpec = {
   shutdown?: number;
 };
 
-type ApplicationSpec<T extends typeof GenServer & (new () => GenServer)> = {
+type ApplicationSpec = {
   childStrategy: RestartStrategy;
-  supervise: T[];
+  supervise: typeof GenServer[];
 };
 
 export { RestartStrategy, ChildRestartStrategy, ChildSpec, ApplicationSpec };

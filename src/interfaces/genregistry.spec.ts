@@ -7,6 +7,7 @@ import EventEmitter from "events";
 import { ChildSpec, ChildRestartStrategy } from "../supervision/types";
 import { keyForIdSymbol } from "../utils/symbols";
 
+@Server(new InMemoryEmitter(10), { test: new InMemoryEmitter(10) })
 class DelayNormalPermanentServer extends GenServer {
   protected async *init(
     ...args: unknown[]
@@ -16,7 +17,7 @@ class DelayNormalPermanentServer extends GenServer {
   public async *start<U extends typeof GenServer>(
     startArgs: any,
     context: U,
-    canceler: AsyncGenerator<[boolean, EventEmitter], never, boolean>,
+    canceler: Generator<[boolean, EventEmitter], never, boolean>,
     cancelerPromise: Promise<boolean>
   ) {
     await delay(200);
@@ -41,7 +42,7 @@ describe("GenRegistry", () => {
       const initSpy = jest.spyOn(registry, "init");
       const runSpy = jest.spyOn(registry, "run");
       const res = await Promise.all([
-        registry.start({}, TestGenRegistry, canceler, cancelerPromise).next(),
+        registry.start([], TestGenRegistry, canceler, cancelerPromise).next(),
         (async () => {
           await delay(200);
           expect(initSpy).toHaveBeenCalledTimes(1);
@@ -60,14 +61,15 @@ describe("GenRegistry", () => {
       const runSpy = jest.spyOn(registry, "run");
       const server = new DelayNormalPermanentServer();
       const res = await Promise.all([
-        registry.start({}, TestGenRegistry, canceler, cancelerPromise).next(),
+        registry.start([], TestGenRegistry, canceler, cancelerPromise).next(),
         (async () => {
           await delay(200);
           expect(runSpy).toHaveBeenNthCalledWith(
             1,
-            canceler,
-            cancelerPromise,
-            TestGenRegistry,
+            expect.anything(),
+            expect.anything(),
+            expect.anything(),
+            [],
             new Map()
           );
           await GenRegistry.register(
@@ -80,9 +82,10 @@ describe("GenRegistry", () => {
           secondeCallArg.set("myCustomKey", [server[keyForIdSymbol]]);
           expect(runSpy).toHaveBeenNthCalledWith(
             2,
-            canceler,
-            cancelerPromise,
-            TestGenRegistry,
+            expect.anything(),
+            expect.anything(),
+            expect.anything(),
+            [],
             secondeCallArg
           );
           await GenRegistry.register(
@@ -90,17 +93,18 @@ describe("GenRegistry", () => {
             "myCustomKey",
             server[keyForIdSymbol]
           ).next();
-          await delay(200);
           const thirdCallArg = new Map();
           secondeCallArg.set("myCustomKey", [
             server[keyForIdSymbol],
             server[keyForIdSymbol],
           ]);
+          await delay(200);
           expect(runSpy).toHaveBeenNthCalledWith(
             3,
-            canceler,
-            cancelerPromise,
-            TestGenRegistry,
+            expect.anything(),
+            expect.anything(),
+            expect.anything(),
+            [],
             secondeCallArg
           );
           putMemoValue(canceler, false);
@@ -116,9 +120,8 @@ describe("GenRegistry", () => {
       const cancelerPromise = getMemoPromise(canceler);
       const server = new DelayNormalPermanentServer();
       const res = await Promise.all([
-        registry.start({}, TestGenRegistry, canceler, cancelerPromise).next(),
+        registry.start([], TestGenRegistry, canceler, cancelerPromise).next(),
         (async () => {
-          await delay(200);
           await GenRegistry.register(
             [TestGenRegistry],
             "myCustomKey",
@@ -158,7 +161,28 @@ describe("GenRegistry", () => {
             5_000
           ).next();
           expect(dataEmpty.value).toEqual([]);
+          await delay(200);
           putMemoValue(canceler, false);
+        })(),
+      ]);
+      expect(res[0].done).toBeTruthy();
+    });
+  });
+  describe("stop", () => {
+    it("should send stop event to the management loop, and trigger the canceler memo for the server", async () => {
+      const testDecoratedClient = new TestGenRegistry();
+      const canceler = memo(true);
+      const cancelerPromise = getMemoPromise(canceler);
+      const res = await Promise.all([
+        testDecoratedClient
+          .start([], TestGenRegistry, canceler, cancelerPromise)
+          .next(),
+        (async () => {
+          await delay(1_000);
+          await TestGenRegistry.stop(
+            TestGenRegistry,
+            TestGenRegistry.name
+          ).next();
         })(),
       ]);
       expect(res[0].done).toBeTruthy();

@@ -75,7 +75,7 @@ describe("take", () => {
   and return undefined if reaching provided promise timeout, triggering the cancel memo in the process`, async () => {
     const emitter = new InMemoryEmitter(10);
     const onceFunctionDescriptor = Reflect.get(emitter, "once");
-    let cancelerRef: AsyncGenerator<[boolean, EventEmitter], never, boolean>;
+    let cancelerRef: Generator<[boolean, EventEmitter], never, boolean>;
     let cancelerPromise: Promise<boolean>;
     const proxy = (
       {
@@ -85,7 +85,7 @@ describe("take", () => {
       }: {
         timeout?: number | Promise<boolean>;
         event: string | symbol;
-        canceler: AsyncGenerator<[boolean, EventEmitter], never, boolean>;
+        canceler: Generator<[boolean, EventEmitter], never, boolean>;
       },
       listener: (...args: any[]) => void
     ) => {
@@ -116,7 +116,7 @@ describe("take", () => {
   and return undefined if reaching default 5_000ms timeout, triggering the cancel memo in the process`, async () => {
     const emitter = new InMemoryEmitter(10);
     const onceFunctionDescriptor = Reflect.get(emitter, "once");
-    let cancelerRef: AsyncGenerator<[boolean, EventEmitter], never, boolean>;
+    let cancelerRef: Generator<[boolean, EventEmitter], never, boolean>;
     let cancelerPromise: Promise<boolean>;
     const proxy = (
       {
@@ -126,7 +126,7 @@ describe("take", () => {
       }: {
         timeout?: number | Promise<boolean>;
         event: string | symbol;
-        canceler: AsyncGenerator<[boolean, EventEmitter], never, boolean>;
+        canceler: Generator<[boolean, EventEmitter], never, boolean>;
       },
       listener: (...args: any[]) => void
     ) => {
@@ -162,7 +162,7 @@ describe("takeAny", () => {
       emitters[0],
       "once"
     );
-    let cancelerRef: AsyncGenerator<[boolean, EventEmitter], never, boolean>;
+    let cancelerRef: Generator<[boolean, EventEmitter], never, boolean>;
     let cancelerPromise: Promise<boolean>;
     const proxy = (
       {
@@ -172,7 +172,7 @@ describe("takeAny", () => {
       }: {
         timeout?: number;
         event: string | symbol;
-        canceler: AsyncGenerator<[boolean, EventEmitter], never, boolean>;
+        canceler: Generator<[boolean, EventEmitter], never, boolean>;
       },
       listener: (...args: any[]) => void
     ) => {
@@ -208,7 +208,7 @@ describe("takeAny", () => {
       emitters[0],
       "once"
     );
-    let cancelerRef: AsyncGenerator<[boolean, EventEmitter], never, boolean>;
+    let cancelerRef: Generator<[boolean, EventEmitter], never, boolean>;
     let cancelerPromise: Promise<boolean>;
     const proxy = (
       {
@@ -218,7 +218,7 @@ describe("takeAny", () => {
       }: {
         timeout?: number;
         event: string | symbol;
-        canceler: AsyncGenerator<[boolean, EventEmitter], never, boolean>;
+        canceler: Generator<[boolean, EventEmitter], never, boolean>;
       },
       listener: (...args: any[]) => void
     ) => {
@@ -257,7 +257,7 @@ describe("takeAny", () => {
       emitters[0],
       "once"
     );
-    let cancelerRef: AsyncGenerator<[boolean, EventEmitter], never, boolean>;
+    let cancelerRef: Generator<[boolean, EventEmitter], never, boolean>;
     let cancelerPromise: Promise<boolean>;
     const proxy = (
       {
@@ -267,7 +267,7 @@ describe("takeAny", () => {
       }: {
         timeout?: number;
         event: string | symbol;
-        canceler: AsyncGenerator<[boolean, EventEmitter], never, boolean>;
+        canceler: Generator<[boolean, EventEmitter], never, boolean>;
       },
       listener: (...args: any[]) => void
     ) => {

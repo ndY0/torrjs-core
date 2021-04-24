@@ -36,7 +36,7 @@ class CombineEmitter implements TransportEmitter {
     }: {
       timeout?: number | Promise<boolean>;
       event: string | symbol;
-      canceler: AsyncGenerator<[boolean, EventEmitter], never, boolean>;
+      canceler: Generator<[boolean, EventEmitter], never, boolean>;
     },
     listener: (...args: any[]) => void
   ): Promise<void> {
@@ -47,12 +47,10 @@ class CombineEmitter implements TransportEmitter {
       result = await Promise.race([
         (async function (passedCanceler, outterCanceler) {
           await promisify(cure(stream.once, stream)("readable"), stream);
-          const shouldRun = (
-            await Promise.all([
-              getMemoValue(passedCanceler),
-              getMemoValue(outterCanceler),
-            ])
-          ).reduce((acc, curr) => acc && curr, true);
+          const shouldRun = [
+            getMemoValue(passedCanceler),
+            getMemoValue(outterCanceler),
+          ].reduce((acc, curr) => acc && curr, true);
           if (shouldRun) {
             return (<Duplex>stream).read(1);
           }
@@ -61,7 +59,7 @@ class CombineEmitter implements TransportEmitter {
           typeof timeout === "number" || timeout === undefined
             ? await delay(timeout || 10_000)
             : await timeout;
-          await putMemoValue(passedCanceler, false);
+          putMemoValue(passedCanceler, false);
         })(innerCanceler),
       ]);
     }

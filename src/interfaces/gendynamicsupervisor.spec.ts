@@ -10,6 +10,7 @@ import {
 import { memo, getMemoPromise, delay, putMemoValue } from "../utils";
 import { GenServer } from "./genserver";
 import EventEmitter from "events";
+import { GenSupervisor } from "./gensupervisor";
 
 class DelayNormalTemporaryServer extends GenServer {
   protected async *init(
@@ -20,7 +21,7 @@ class DelayNormalTemporaryServer extends GenServer {
   public async *start<U extends typeof GenServer>(
     startArgs: any,
     context: U,
-    canceler: AsyncGenerator<[boolean, EventEmitter], never, boolean>,
+    canceler: Generator<[boolean, EventEmitter], never, boolean>,
     cancelerPromise: Promise<boolean>
   ) {
     await delay(200);
@@ -34,7 +35,11 @@ class DelayNormalTemporaryServer extends GenServer {
 }
 
 @Server(new InMemoryEmitter(10), { test: new InMemoryEmitter(10) })
-class TestDynamicSupervisor extends GenDynamicSupervisor {}
+class TestDynamicSupervisor extends GenDynamicSupervisor {
+  protected async *children() {
+    return [DelayNormalTemporaryServer];
+  }
+}
 
 describe("GenDynamicSupervisor", () => {
   describe("childSpec", () => {
@@ -52,7 +57,7 @@ describe("GenDynamicSupervisor", () => {
       const supervisor = new TestDynamicSupervisor();
       const children = Reflect.get(supervisor, "children");
       const list = await children().next();
-      expect(list.value).toEqual([]);
+      expect(list.value).toBeInstanceOf(Array);
     });
   });
   describe("start", () => {
@@ -75,13 +80,13 @@ describe("GenDynamicSupervisor", () => {
           await delay(300);
           expect(initSpy).toHaveBeenCalledTimes(1);
           expect(runSpy).toHaveBeenCalledTimes(1);
-          await putMemoValue(canceler, false);
+          putMemoValue(canceler, false);
         })(),
       ]);
     });
   });
   describe("startChild", () => {
-    it("should start a new supervised child, looping supervisor run loop for one iteration", async () => {
+    it("should start a new supervised child or supervisor child, looping supervisor run loop for one iteration", async () => {
       const supervisor = new TestDynamicSupervisor();
       const canceler = memo(true);
       const cancelerPromise = getMemoPromise(canceler);
@@ -116,7 +121,7 @@ describe("GenDynamicSupervisor", () => {
           await delay(1000);
           expect(initSpy).toHaveBeenCalledTimes(1);
           expect(runSpy).toHaveBeenCalledTimes(3);
-          await putMemoValue(canceler, false);
+          putMemoValue(canceler, false);
         })(),
       ]);
     });

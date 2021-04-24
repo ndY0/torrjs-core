@@ -153,7 +153,7 @@ describe("GenServer", () => {
         startGenerator.next(),
         (async () => {
           await delay(5_000);
-          await putMemoValue(canceler, false);
+          putMemoValue(canceler, false);
         })(),
       ]);
       expect(res[0].value).toBeUndefined();
@@ -183,7 +183,7 @@ describe("GenServer", () => {
             test: "test",
           }).next();
           await delay(200);
-          await putMemoValue(canceler, false);
+          putMemoValue(canceler, false);
         })(),
       ]);
       expect(spyTestCast).toHaveBeenLastCalledWith([], { test: "test" });
@@ -212,11 +212,12 @@ describe("GenServer", () => {
           await TestDecoratedGenServer.testCast(serverId, {
             test: "test",
           }).next();
+          await delay(200);
           await TestDecoratedGenServer.testCast(serverId, {
             test: "test",
           }).next();
           await delay(200);
-          await putMemoValue(canceler, false);
+          putMemoValue(canceler, false);
         })(),
       ]);
       expect(spyTestCast).toHaveBeenLastCalledWith([{ test: "test" }], {
@@ -252,7 +253,7 @@ describe("GenServer", () => {
             serverId,
             testDecoratedClient
           ).next();
-          await putMemoValue(canceler, false);
+          putMemoValue(canceler, false);
           await delay(200);
           return res;
         })(),
@@ -287,6 +288,7 @@ describe("GenServer", () => {
           await TestDecoratedGenServer.testCast(serverId, {
             test: "test",
           }).next();
+          await delay(200);
           await TestDecoratedGenServer.testCast(serverId, {
             test: "test",
           }).next();
@@ -299,7 +301,7 @@ describe("GenServer", () => {
             serverId,
             testDecoratedClient
           ).next();
-          await putMemoValue(canceler, false);
+          putMemoValue(canceler, false);
           await delay(200);
           return { first: res1.value, second: res2.value };
         })(),
@@ -348,7 +350,7 @@ describe("GenServer", () => {
             test: "test",
           }).next();
           await delay(200);
-          await putMemoValue(canceler, false);
+          putMemoValue(canceler, false);
           await delay(200);
         })(),
       ]);
@@ -381,12 +383,15 @@ describe("GenServer", () => {
       const res = await Promise.all([
         startGenerator.next(),
         (async () => {
+          await delay(200);
           await TestDecoratedExternalGenServer.testCast(serverId, {
             test: "test",
           }).next();
+          await delay(200);
           await TestDecoratedExternalGenServer.testCastExternal(serverId, {
             test: "test",
           }).next();
+          await delay(200);
           const res1 = await TestDecoratedExternalGenServer.testCall(
             serverId,
             testDecoratedClient
@@ -396,7 +401,7 @@ describe("GenServer", () => {
             testDecoratedClient
           ).next();
           await delay(500);
-          await putMemoValue(canceler, false);
+          putMemoValue(canceler, false);
           return { first: res1.value, second: res2.value };
         })(),
       ]);
@@ -414,6 +419,26 @@ describe("GenServer", () => {
         first: { test: "test" },
         second: { test: "test" },
       });
+    });
+  });
+  describe("stop", () => {
+    it("should send stop event to the management loop, and trigger the canceler memo for the server", async () => {
+      const testDecoratedClient = new TestDecoratedGenServer();
+      const canceler = memo(true);
+      const cancelerPromise = getMemoPromise(canceler);
+      const res = await Promise.all([
+        testDecoratedClient
+          .start([], TestDecoratedGenServer, canceler, cancelerPromise)
+          .next(),
+        (async () => {
+          await delay(1_000);
+          await TestDecoratedGenServer.stop(
+            TestDecoratedGenServer,
+            testDecoratedClient[keyForIdSymbol]
+          ).next();
+        })(),
+      ]);
+      expect(res[0].done).toBeTruthy();
     });
   });
 });

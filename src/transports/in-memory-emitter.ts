@@ -36,7 +36,7 @@ class InMemoryEmitter implements TransportEmitter {
     }: {
       timeout?: number | Promise<boolean>;
       event: string | symbol;
-      canceler: AsyncGenerator<[boolean, EventEmitter], never, boolean>;
+      canceler: Generator<[boolean, EventEmitter], never, boolean>;
     },
     listener: (...args: any[]) => void
   ): Promise<void> {
@@ -51,12 +51,10 @@ class InMemoryEmitter implements TransportEmitter {
       result = await Promise.race([
         (async function (passedCanceler, outterCanceler) {
           await promisify(cure(stream.once, stream)("readable"), stream);
-          const shouldRun = (
-            await Promise.all([
-              getMemoValue(passedCanceler),
-              getMemoValue(outterCanceler),
-            ])
-          ).reduce((acc, curr) => acc && curr, true);
+          const shouldRun = [
+            getMemoValue(passedCanceler),
+            getMemoValue(outterCanceler),
+          ].reduce((acc, curr) => acc && curr, true);
           if (shouldRun) {
             return (<Duplex>stream).read(1);
           }
@@ -67,7 +65,7 @@ class InMemoryEmitter implements TransportEmitter {
           } else {
             await timeout;
           }
-          await putMemoValue(passedCanceler, false);
+          putMemoValue(passedCanceler, false);
         })(innerCanceler),
       ]);
     }

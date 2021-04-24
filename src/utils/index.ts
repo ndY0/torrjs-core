@@ -22,12 +22,12 @@ function cure<Tfirst, Trest, Treturn>(
 
 async function tail<T>(
   factory: (acc: T) => AsyncGenerator<any, T, T | undefined>,
-  canceler: AsyncGenerator<[boolean, EventEmitter], never, boolean>,
+  canceler: Generator<[boolean, EventEmitter], never, boolean>,
   acc: T,
   stopCondition?: (state: T) => boolean
 ): Promise<T | undefined> {
   const iterator = factory(acc);
-  if (await getMemoValue(canceler)) {
+  if (getMemoValue(canceler)) {
     let done;
     let res: T = acc;
     while (!done) {
@@ -43,37 +43,88 @@ async function tail<T>(
   }
 }
 
-async function getMemoPromise<T>(
-  memo: AsyncGenerator<[T, EventEmitter], never, T>
-) {
+function getMemoPromise<T>(memo: Generator<[T, EventEmitter], never, T>) {
   const {
     value: [_, emitter],
-  } = await memo.next();
+  } = memo.next();
   return promisify<T>(cure(emitter.once, emitter)("updated"), emitter);
 }
 
-async function getMemoValue<T>(
-  memo: AsyncGenerator<[T, EventEmitter], never, T>
-) {
+function getMemoValue<T>(memo: Generator<[T, EventEmitter], never, T>) {
   const {
     value: [memoized, _],
-  } = await memo.next();
+  } = memo.next();
   return memoized;
 }
 
-async function putMemoValue<T>(
-  memo: AsyncGenerator<[T, EventEmitter], never, T>,
+function putMemoValue<T>(
+  memo: Generator<[T, EventEmitter], never, T>,
   value: T
 ) {
-  await memo.next(value);
+  memo.next(value);
 }
 
-function memo<T>(initialState: T): AsyncGenerator<[T, EventEmitter], never, T> {
-  const generator = (async function* (
+function combineMemos<T, U>(
+  mergeFunction: (...states: T[]) => U,
+  ...memos: Generator<[T, EventEmitter], never, T>[]
+): Generator<[U, EventEmitter], never, T> {
+  const generator: Generator<[U, EventEmitter], never, T> = <any>(function* () {
+    let state: U = mergeFunction(
+      ...memos
+        .map((memo) => memo.next())
+        .map(({ value: [memoized, _] }) => memoized)
+    );
+    let shouldEmit: boolean = true;
+    const memosLength: number = memos.length - 1;
+    let currentMemoCount: number = 0;
+    const emitter = new EventEmitter();
+    const innerEmittersRef = memos
+      .map((memo) => memo.next())
+      .map(({ value: [_, innerEmitter] }) => innerEmitter);
+    let innerStates: T[] = [];
+    innerEmittersRef.forEach((innerEmitter, position) => {
+      innerEmitter.on("updated", (data: T) => {
+        innerStates[position] = data;
+        if (shouldEmit) {
+          currentMemoCount = 0;
+          state = mergeFunction(...innerStates);
+          emitter.emit("updated", state);
+        } else {
+          currentMemoCount += 1;
+          if (currentMemoCount === memosLength) {
+            shouldEmit = true;
+            currentMemoCount = 0;
+          }
+        }
+      });
+    });
+    while (true) {
+      const passed: T | undefined = yield [state, emitter];
+      if (passed !== undefined) {
+        shouldEmit = false;
+        innerStates = memos
+          .map((memo) => memo.next(passed))
+          .map(({ value: [memoized, _] }) => memoized);
+        state = mergeFunction(...innerStates);
+        emitter.emit("updated", state);
+      } else {
+        innerStates = memos
+          .map((memo) => memo.next())
+          .map(({ value: [memoized, _] }) => memoized);
+      }
+    }
+  })();
+  generator.next();
+  return generator;
+}
+
+function memo<T>(initialState: T): Generator<[T, EventEmitter], never, T> {
+  const generator = (function* (
     initialState: T
-  ): AsyncGenerator<[T, EventEmitter], never, T> {
+  ): Generator<[T, EventEmitter], never, T> {
     let state: T = initialState;
     const emitter = new EventEmitter();
+    emitter.setMaxListeners(Math.pow(2, 32) / 2 - 1);
     while (true) {
       const passed = yield [state, emitter];
       if (passed !== undefined) {
@@ -87,7 +138,7 @@ function memo<T>(initialState: T): AsyncGenerator<[T, EventEmitter], never, T> {
 }
 
 async function promisifyAsyncGenerator<T>(
-  generator: AsyncGenerator<T, T, unknown>
+  generator: AsyncGenerator<any, T, unknown>
 ) {
   let isDone;
   let result: T;
@@ -99,27 +150,49 @@ async function promisifyAsyncGenerator<T>(
   return result;
 }
 
+async function promisifyGenerator<T>(generator: Generator<T, T, unknown>) {
+  let isDone;
+  let result: T;
+  do {
+    const { done, value } = generator.next();
+    isDone = done;
+    result = value;
+  } while (!isDone);
+  return result;
+}
+
 async function loopWorker(
   factory: () => Promise<any>,
   spec: ChildSpec,
-  canceler: AsyncGenerator<[boolean, EventEmitter], never, boolean>
+  canceler: Generator<[boolean, EventEmitter], never, boolean>,
+  [supervized, index]: [
+    {
+      id: string | null;
+      canceler: Generator<[boolean, EventEmitter], never, boolean>;
+    }[],
+    number
+  ]
 ): Promise<void> {
   try {
-    if (await getMemoValue(canceler)) {
+    if (getMemoValue(canceler)) {
       await factory();
       if (spec.restart === ChildRestartStrategy.PERMANENT) {
-        return loopWorker(factory, spec, canceler);
+        return loopWorker(factory, spec, canceler, [supervized, index]);
       }
+      supervized[index].id = null;
     }
+    supervized[index].id = null;
   } catch (_e) {
-    if (await getMemoValue(canceler)) {
+    if (getMemoValue(canceler)) {
       if (
         spec.restart === ChildRestartStrategy.TRANSIENT ||
         spec.restart === ChildRestartStrategy.PERMANENT
       ) {
-        return loopWorker(factory, spec, canceler);
+        return loopWorker(factory, spec, canceler, [supervized, index]);
       }
+      supervized[index].id = null;
     }
+    supervized[index].id = null;
   }
 }
 
@@ -127,15 +200,23 @@ async function delay(ms: number) {
   await new Promise<void>((resolve) => setTimeout(() => resolve(), ms));
 }
 
+function mutateArray(original: any[], replace: any[]) {
+  original.splice(0, original.length, ...replace);
+  return original;
+}
+
 export {
   promisify,
   cure,
   tail,
   memo,
+  combineMemos,
   getMemoPromise,
   getMemoValue,
   putMemoValue,
   promisifyAsyncGenerator,
+  promisifyGenerator,
   loopWorker,
   delay,
+  mutateArray,
 };
