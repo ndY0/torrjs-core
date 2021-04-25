@@ -12,7 +12,8 @@
     "build": "tsc",
     "pretest": "rimraf coverage",
     "test": "node --trace-warnings node_modules/.bin/jest --detectOpenHandles",
-    "watch": "yarn test --watchAll"
+    "test:perf": "node --max-old-space-size=6144 --expose-gc --trace-warnings node_modules/.bin/jest --runInBand --logHeapUsage --detectOpenHandles -c ./jest.perf.config.ts",
+    "watch": "node --trace-warnings node_modules/.bin/jest --detectOpenHandles --watchAll"
   },
   "devDependencies": {
     "@types/jest": "^26.0.22",

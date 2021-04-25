@@ -85,19 +85,19 @@ class InMemoryEmitter implements TransportEmitter {
       this.streams.set(event, stream);
     }
     const ok = stream.write(args);
-    if (!ok) {
-      return await Promise.race([
-        (async () => {
-          await promisify(cure(stream.once, stream)("drain"), stream);
-          (<Duplex>stream).write(args);
-          return true;
-        })(),
-        (async () => {
-          await delay(timeout || 5_000);
-          return false;
-        })(),
-      ]);
-    }
+    // if (!ok) {
+    //   return await Promise.race([
+    //     (async () => {
+    //       await promisify(cure(stream.once, stream)("drain"), stream);
+    //       (<Duplex>stream).write(args);
+    //       return true;
+    //     })(),
+    //     (async () => {
+    //       await delay(timeout || 5_000);
+    //       return false;
+    //     })(),
+    //   ]);
+    // }
     return true;
   }
 }

@@ -1,4 +1,4 @@
-import { PassThrough, Duplex, Readable } from "stream";
+import { PassThrough, Duplex } from "stream";
 
 function combineStreams(streams: Duplex[]): Duplex {
   const queueSize = streams.reduce(
@@ -11,6 +11,7 @@ function combineStreams(streams: Duplex[]): Duplex {
     autoDestroy: false,
     emitClose: false,
   });
+  // passThrough.setMaxListeners(Math.pow(2, 32) / 2 - 1);
   streams.forEach((stream) => {
     passThrough = stream.pipe(passThrough);
   });

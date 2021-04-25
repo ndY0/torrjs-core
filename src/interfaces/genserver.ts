@@ -121,6 +121,8 @@ abstract class GenServer {
       let result: ServerReply;
       if (funcName) {
         result = yield* this[funcName](state, ...event.data);
+        // needed to avoid heap allocation overflow in case of shallow copy in handler function
+        delete arguments[4];
       } else {
         return state;
       }

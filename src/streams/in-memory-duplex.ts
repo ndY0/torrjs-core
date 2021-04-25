@@ -8,6 +8,7 @@ class InMemoryDuplex extends PassThrough {
       autoDestroy: false,
       emitClose: false,
     });
+    // this.setMaxListeners(Math.pow(2, 32) / 2 - 1);
   }
 }
 
